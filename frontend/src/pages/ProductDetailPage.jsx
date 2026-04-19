@@ -4,6 +4,7 @@ import { ShoppingCart, Heart, BarChart2, Star } from 'lucide-react';
 import { productApi, wishlistApi } from '../api';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
+import { useCompare } from '../context/CompareContext';
 import ProductCard from '../components/ProductCard';
 import toast from 'react-hot-toast';
 
@@ -14,6 +15,7 @@ export default function ProductDetailPage() {
   const { slug } = useParams();
   const { user } = useAuth();
   const { addToCart } = useCart();
+  const { addToCompare, isInCompare } = useCompare();
   const navigate = useNavigate();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -136,9 +138,17 @@ export default function ProductDetailPage() {
               style={wishlisted?{borderColor:'var(--red)',color:'var(--red)'}:{}}>
               <Heart size={14} fill={wishlisted?'currentColor':'none'}/> {wishlisted?'Đã thích':'Yêu thích'}
             </button>
-            <Link to={`/compare?ids=${product.id}`} className="btn btn-ghost btn-sm">
-              <BarChart2 size={14}/> So sánh
-            </Link>
+            <button
+              className={`btn btn-sm ${isInCompare(product.id) ? 'btn-primary' : 'btn-ghost'}`}
+              onClick={() => addToCompare({
+                id: product.id, slug: product.slug, name: product.name,
+                thumbnail: product.thumbnail, price: product.price,
+                sale_price: product.sale_price, brand_name: product.brand_name,
+                avg_rating: product.avg_rating, stock_quantity: product.stock_quantity,
+              })}
+            >
+              <BarChart2 size={14}/> {isInCompare(product.id) ? 'Đang so sánh' : 'So sánh'}
+            </button>
           </div>
 
           {/* Trust badges */}

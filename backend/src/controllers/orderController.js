@@ -1,16 +1,12 @@
 const db = require('../config/database');
 
-// Tạo mã đơn hàng
 const generateOrderCode = () => {
-  const now = new Date();
-  const date = now.toISOString().slice(0,10).replace(/-/g,'');
+  const date = new Date().toISOString().slice(0,10).replace(/-/g,'');
   const rand = Math.floor(Math.random() * 9000) + 1000;
-  return `ORD-${date}-${rand}`;
+  return `DH-${date}-${rand}`;
 };
 
-/**
- * POST /api/orders  - Tạo đơn hàng
- */
+/** POST /api/orders */
 const createOrder = async (req, res, next) => {
   const conn = await db.getConnection();
   try {
@@ -18,34 +14,39 @@ const createOrder = async (req, res, next) => {
 
     const {
       receiver_name, receiver_phone, shipping_address,
-      payment_method = 'cod', note = '',
+      payment_method = 'tien_mat', note = '',
       voucher_id = null, loyalty_points_used = 0,
     } = req.body;
 
     if (!receiver_name || !receiver_phone || !shipping_address) {
+      await conn.rollback();
       return res.status(400).json({ success: false, message: 'Thiếu thông tin giao hàng' });
     }
 
     // Lấy giỏ hàng
-    const [cartRows] = await conn.query('SELECT id FROM carts WHERE user_id = ?', [req.user.id]);
+    const [cartRows] = await conn.query(
+      'SELECT ma_gio_hang FROM gio_hang WHERE ma_nguoi_dung = ?', [req.user.id]
+    );
     if (!cartRows.length) {
+      await conn.rollback();
       return res.status(400).json({ success: false, message: 'Giỏ hàng trống' });
     }
 
     const [items] = await conn.query(
-      `SELECT ci.id, ci.product_id, ci.quantity, ci.unit_price,
-              p.name, p.thumbnail, p.stock_quantity
-       FROM cart_items ci
-       JOIN products p ON p.id = ci.product_id
-       WHERE ci.cart_id = ?`,
-      [cartRows[0].id]
+      `SELECT ctgh.ma_chi_tiet AS id, ctgh.ma_san_pham AS product_id,
+              ctgh.so_luong AS quantity, ctgh.don_gia AS unit_price,
+              sp.ten_san_pham AS name, sp.anh_dai_dien AS thumbnail, sp.so_luong_ton AS stock_quantity
+       FROM chi_tiet_gio_hang ctgh
+       JOIN san_pham sp ON sp.ma_san_pham = ctgh.ma_san_pham
+       WHERE ctgh.ma_gio_hang = ?`,
+      [cartRows[0].ma_gio_hang]
     );
 
     if (!items.length) {
+      await conn.rollback();
       return res.status(400).json({ success: false, message: 'Giỏ hàng trống' });
     }
 
-    // Kiểm tra tồn kho toàn bộ
     for (const item of items) {
       if (item.quantity > item.stock_quantity) {
         await conn.rollback();
@@ -56,108 +57,105 @@ const createOrder = async (req, res, next) => {
       }
     }
 
-    // Tính subtotal
     const subtotal = items.reduce((s, i) => s + parseFloat(i.unit_price) * i.quantity, 0);
     let discountAmount = 0;
 
-    // Xử lý voucher
+    // Voucher
     if (voucher_id) {
       const [vouchers] = await conn.query(
-        'SELECT * FROM vouchers WHERE id = ? AND is_active = 1 AND expired_at >= NOW()',
+        'SELECT * FROM ma_giam_gia WHERE ma_voucher = ? AND trang_thai = 1 AND ngay_het_han >= NOW()',
         [voucher_id]
       );
       if (vouchers.length) {
         const v = vouchers[0];
-        if (v.discount_type === 'percent') {
-          discountAmount = (subtotal * parseFloat(v.discount_value)) / 100;
-          if (v.max_discount_amount) discountAmount = Math.min(discountAmount, parseFloat(v.max_discount_amount));
+        if (v.loai_giam === 'percent') {
+          discountAmount = (subtotal * parseFloat(v.gia_tri_giam)) / 100;
+          if (v.giam_toi_da) discountAmount = Math.min(discountAmount, parseFloat(v.giam_toi_da));
         } else {
-          discountAmount = parseFloat(v.discount_value);
+          discountAmount = parseFloat(v.gia_tri_giam);
         }
         discountAmount = Math.min(discountAmount, subtotal);
-        // Tăng used_count
-        await conn.query('UPDATE vouchers SET used_count = used_count + 1 WHERE id = ?', [voucher_id]);
+        await conn.query('UPDATE ma_giam_gia SET da_su_dung = da_su_dung + 1 WHERE ma_voucher = ?', [voucher_id]);
       }
     }
 
-    // Xử lý điểm tích lũy
+    // Điểm tích lũy
     let pointsDeduction = 0;
     if (loyalty_points_used > 0) {
-      const [userRow] = await conn.query('SELECT loyalty_points FROM users WHERE id = ?', [req.user.id]);
-      const availablePoints = userRow[0].loyalty_points;
-      const pointsToUse = Math.min(loyalty_points_used, availablePoints);
-      pointsDeduction = pointsToUse * 1000; // 1 điểm = 1000đ
+      const [userRow] = await conn.query(
+        'SELECT diem_tich_luy FROM nguoi_dung WHERE ma_nguoi_dung = ?', [req.user.id]
+      );
+      const pointsToUse = Math.min(loyalty_points_used, userRow[0].diem_tich_luy);
+      pointsDeduction = pointsToUse * 1000;
       pointsDeduction = Math.min(pointsDeduction, subtotal - discountAmount);
-      await conn.query('UPDATE users SET loyalty_points = loyalty_points - ? WHERE id = ?',
-        [pointsToUse, req.user.id]);
+      await conn.query(
+        'UPDATE nguoi_dung SET diem_tich_luy = diem_tich_luy - ? WHERE ma_nguoi_dung = ?',
+        [pointsToUse, req.user.id]
+      );
     }
 
-    const shipping_fee = 0; // Miễn phí vận chuyển (có thể tùy chỉnh)
-    const totalAmount = subtotal - discountAmount - pointsDeduction + shipping_fee;
+    const phi_van_chuyen = 0;
+    const tong_tien = subtotal - discountAmount - pointsDeduction + phi_van_chuyen;
+    const pointsEarned = Math.floor(tong_tien / 100000);
+    const ma_code = generateOrderCode();
 
-    // Tính điểm tích lũy (1% giá trị đơn)
-    const pointsEarned = Math.floor(totalAmount / 100000); // 100k = 1 điểm
-
-    const orderCode = generateOrderCode();
-
-    // Tạo đơn hàng
     const [orderResult] = await conn.query(
-      `INSERT INTO orders (user_id, order_code, subtotal, discount_amount, shipping_fee, total_amount,
-        voucher_id, loyalty_points_used, loyalty_points_earned, status, payment_method,
-        receiver_name, receiver_phone, shipping_address, note)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?)`,
-      [req.user.id, orderCode, subtotal, discountAmount, shipping_fee, totalAmount,
+      `INSERT INTO don_hang
+         (ma_nguoi_dung, ma_code, tam_tinh, so_tien_giam, phi_van_chuyen, tong_tien,
+          ma_voucher, diem_su_dung, diem_tich_duoc, trang_thai, phuong_thuc_tt,
+          ten_nguoi_nhan, sdt_nguoi_nhan, dia_chi_giao_hang, ghi_chu)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'cho_xac_nhan', ?, ?, ?, ?, ?)`,
+      [req.user.id, ma_code, subtotal, discountAmount, phi_van_chuyen, tong_tien,
        voucher_id || null, loyalty_points_used, pointsEarned, payment_method,
        receiver_name, receiver_phone, shipping_address, note]
     );
     const orderId = orderResult.insertId;
 
-    // Tạo order items
     for (const item of items) {
       await conn.query(
-        `INSERT INTO order_items (order_id, product_id, product_name, product_thumbnail, unit_price, quantity, subtotal)
+        `INSERT INTO chi_tiet_don_hang
+           (ma_don_hang, ma_san_pham, ten_san_pham, anh_san_pham, don_gia, so_luong, thanh_tien)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [orderId, item.product_id, item.name, item.thumbnail,
          item.unit_price, item.quantity, parseFloat(item.unit_price) * item.quantity]
       );
 
-      // Trừ tồn kho
       const stockBefore = item.stock_quantity;
       const stockAfter = stockBefore - item.quantity;
-      await conn.query('UPDATE products SET stock_quantity = ? WHERE id = ?', [stockAfter, item.product_id]);
-
-      // Log xuất kho
       await conn.query(
-        `INSERT INTO inventory_logs (product_id, user_id, quantity_change, stock_before, stock_after, type, note, reference_code)
-         VALUES (?, ?, ?, ?, ?, 'export', ?, ?)`,
+        'UPDATE san_pham SET so_luong_ton = ? WHERE ma_san_pham = ?', [stockAfter, item.product_id]
+      );
+      await conn.query(
+        `INSERT INTO lich_su_kho
+           (ma_san_pham, ma_nguoi_dung, so_luong_bien_dong, ton_kho_truoc, ton_kho_sau, loai_giao_dich, ghi_chu, ma_tham_chieu)
+         VALUES (?, ?, ?, ?, ?, 'xuat', ?, ?)`,
         [item.product_id, req.user.id, -item.quantity, stockBefore, stockAfter,
-         `Xuất theo đơn hàng ${orderCode}`, orderCode]
+         `Xuất theo đơn hàng ${ma_code}`, ma_code]
       );
     }
 
-    // Ghi voucher usage
     if (voucher_id && discountAmount > 0) {
       await conn.query(
-        'INSERT INTO voucher_usages (voucher_id, user_id, order_id, discount_applied) VALUES (?, ?, ?, ?)',
+        'INSERT INTO lich_su_voucher (ma_voucher, ma_nguoi_dung, ma_don_hang, so_tien_giam) VALUES (?, ?, ?, ?)',
         [voucher_id, req.user.id, orderId, discountAmount]
       );
     }
 
-    // Cộng điểm tích lũy
     if (pointsEarned > 0) {
-      await conn.query('UPDATE users SET loyalty_points = loyalty_points + ? WHERE id = ?',
-        [pointsEarned, req.user.id]);
+      await conn.query(
+        'UPDATE nguoi_dung SET diem_tich_luy = diem_tich_luy + ? WHERE ma_nguoi_dung = ?',
+        [pointsEarned, req.user.id]
+      );
     }
 
-    // Xóa giỏ hàng
-    await conn.query('DELETE FROM cart_items WHERE cart_id = ?', [cartRows[0].id]);
+    await conn.query('DELETE FROM chi_tiet_gio_hang WHERE ma_gio_hang = ?', [cartRows[0].ma_gio_hang]);
 
-    // Thông báo
     await conn.query(
-      'INSERT INTO notifications (user_id, title, content, type, ref_id) VALUES (?, ?, ?, ?, ?)',
+      `INSERT INTO thong_bao (ma_nguoi_dung, tieu_de, noi_dung, loai, ma_tham_chieu)
+       VALUES (?, ?, ?, ?, ?)`,
       [req.user.id, 'Đặt hàng thành công! 🎉',
-       `Đơn hàng #${orderCode} đã được tạo. Tổng tiền: ${totalAmount.toLocaleString('vi-VN')}đ`,
-       'order', orderCode]
+       `Đơn hàng #${ma_code} đã được tạo. Tổng tiền: ${tong_tien.toLocaleString('vi-VN')}đ`,
+       'don_hang', ma_code]
     );
 
     await conn.commit();
@@ -167,8 +165,8 @@ const createOrder = async (req, res, next) => {
       message: 'Đặt hàng thành công!',
       data: {
         order_id: orderId,
-        order_code: orderCode,
-        total_amount: totalAmount,
+        order_code: ma_code,
+        total_amount: tong_tien,
         discount_amount: discountAmount,
         loyalty_points_earned: pointsEarned,
       },
@@ -181,47 +179,52 @@ const createOrder = async (req, res, next) => {
   }
 };
 
-/**
- * GET /api/orders  - Đơn hàng của tôi
- */
+/** GET /api/orders */
 const getUserOrders = async (req, res, next) => {
   try {
     const { status, page = 1, limit = 10 } = req.query;
     const offset = (page - 1) * limit;
-    let where = 'WHERE o.user_id = ?';
+    let where = 'WHERE dh.ma_nguoi_dung = ?';
     const params = [req.user.id];
-    if (status) { where += ' AND o.status = ?'; params.push(status); }
+    if (status) { where += ' AND dh.trang_thai = ?'; params.push(status); }
 
     const [orders] = await db.query(
-      `SELECT o.id, o.order_code, o.total_amount, o.discount_amount,
-              o.status, o.payment_method, o.payment_status, o.created_at,
-              COUNT(oi.id) as item_count
-       FROM orders o
-       LEFT JOIN order_items oi ON oi.order_id = o.id
+      `SELECT dh.ma_don_hang AS id, dh.ma_code AS order_code, dh.tong_tien AS total_amount,
+              dh.so_tien_giam AS discount_amount, dh.trang_thai AS status,
+              dh.phuong_thuc_tt AS payment_method, dh.trang_thai_tt AS payment_status,
+              dh.ngay_tao AS created_at, COUNT(ctdh.ma_chi_tiet) AS item_count
+       FROM don_hang dh
+       LEFT JOIN chi_tiet_don_hang ctdh ON ctdh.ma_don_hang = dh.ma_don_hang
        ${where}
-       GROUP BY o.id
-       ORDER BY o.created_at DESC
+       GROUP BY dh.ma_don_hang
+       ORDER BY dh.ngay_tao DESC
        LIMIT ? OFFSET ?`,
       [...params, parseInt(limit), offset]
     );
 
     res.json({ success: true, data: orders });
-  } catch (err) {
-    next(err);
-  }
+  } catch (err) { next(err); }
 };
 
-/**
- * GET /api/orders/:id  - Chi tiết đơn hàng
- */
+/** GET /api/orders/:id */
 const getOrderById = async (req, res, next) => {
   try {
     const { id } = req.params;
     const [orders] = await db.query(
-      `SELECT o.*, v.code as voucher_code
-       FROM orders o
-       LEFT JOIN vouchers v ON v.id = o.voucher_id
-       WHERE o.id = ? AND o.user_id = ?`,
+      `SELECT dh.*,
+              dh.ma_don_hang AS id, dh.ma_code AS order_code,
+              dh.tong_tien AS total_amount, dh.so_tien_giam AS discount_amount,
+              dh.tam_tinh AS subtotal, dh.phi_van_chuyen AS shipping_fee,
+              dh.trang_thai AS status, dh.phuong_thuc_tt AS payment_method,
+              dh.trang_thai_tt AS payment_status,
+              dh.ten_nguoi_nhan AS receiver_name, dh.sdt_nguoi_nhan AS receiver_phone,
+              dh.dia_chi_giao_hang AS shipping_address, dh.ghi_chu AS note,
+              dh.diem_su_dung AS loyalty_points_used, dh.diem_tich_duoc AS loyalty_points_earned,
+              dh.ngay_tao AS created_at,
+              mgg.ma_code AS voucher_code
+       FROM don_hang dh
+       LEFT JOIN ma_giam_gia mgg ON mgg.ma_voucher = dh.ma_voucher
+       WHERE dh.ma_don_hang = ? AND dh.ma_nguoi_dung = ?`,
       [id, req.user.id]
     );
 
@@ -230,18 +233,16 @@ const getOrderById = async (req, res, next) => {
     }
 
     const [items] = await db.query(
-      'SELECT * FROM order_items WHERE order_id = ?', [id]
+      `SELECT ma_chi_tiet AS id, ma_san_pham AS product_id, ten_san_pham AS product_name,
+              anh_san_pham AS product_thumbnail, don_gia AS unit_price, so_luong AS quantity, thanh_tien AS subtotal
+       FROM chi_tiet_don_hang WHERE ma_don_hang = ?`, [id]
     );
 
     res.json({ success: true, data: { ...orders[0], items } });
-  } catch (err) {
-    next(err);
-  }
+  } catch (err) { next(err); }
 };
 
-/**
- * PUT /api/orders/:id/cancel  - Hủy đơn hàng
- */
+/** PUT /api/orders/:id/cancel */
 const cancelOrder = async (req, res, next) => {
   const conn = await db.getConnection();
   try {
@@ -249,7 +250,7 @@ const cancelOrder = async (req, res, next) => {
     const { id } = req.params;
 
     const [orders] = await conn.query(
-      'SELECT * FROM orders WHERE id = ? AND user_id = ?', [id, req.user.id]
+      'SELECT * FROM don_hang WHERE ma_don_hang = ? AND ma_nguoi_dung = ?', [id, req.user.id]
     );
     if (!orders.length) {
       await conn.rollback();
@@ -257,35 +258,41 @@ const cancelOrder = async (req, res, next) => {
     }
 
     const order = orders[0];
-    if (!['pending', 'confirmed'].includes(order.status)) {
+    if (!['cho_xac_nhan', 'da_xac_nhan'].includes(order.trang_thai)) {
       await conn.rollback();
       return res.status(400).json({ success: false, message: 'Không thể hủy đơn hàng ở trạng thái này' });
     }
 
-    // Hoàn kho
-    const [items] = await conn.query('SELECT * FROM order_items WHERE order_id = ?', [id]);
+    const [items] = await conn.query(
+      'SELECT * FROM chi_tiet_don_hang WHERE ma_don_hang = ?', [id]
+    );
     for (const item of items) {
-      const [p] = await conn.query('SELECT stock_quantity FROM products WHERE id = ?', [item.product_id]);
-      const stockBefore = p[0].stock_quantity;
-      const stockAfter = stockBefore + item.quantity;
-      await conn.query('UPDATE products SET stock_quantity = ? WHERE id = ?', [stockAfter, item.product_id]);
+      const [p] = await conn.query(
+        'SELECT so_luong_ton FROM san_pham WHERE ma_san_pham = ?', [item.ma_san_pham]
+      );
+      const stockBefore = p[0].so_luong_ton;
+      const stockAfter = stockBefore + item.so_luong;
+      await conn.query('UPDATE san_pham SET so_luong_ton = ? WHERE ma_san_pham = ?', [stockAfter, item.ma_san_pham]);
       await conn.query(
-        `INSERT INTO inventory_logs (product_id, user_id, quantity_change, stock_before, stock_after, type, note, reference_code)
-         VALUES (?, ?, ?, ?, ?, 'return', 'Hoàn kho do hủy đơn', ?)`,
-        [item.product_id, req.user.id, item.quantity, stockBefore, stockAfter, order.order_code]
+        `INSERT INTO lich_su_kho (ma_san_pham, ma_nguoi_dung, so_luong_bien_dong, ton_kho_truoc, ton_kho_sau, loai_giao_dich, ghi_chu, ma_tham_chieu)
+         VALUES (?, ?, ?, ?, ?, 'hoan_tra', 'Hoàn kho do hủy đơn', ?)`,
+        [item.ma_san_pham, req.user.id, item.so_luong, stockBefore, stockAfter, order.ma_code]
       );
     }
 
-    // Hoàn điểm và voucher nếu có
-    if (order.loyalty_points_used > 0) {
-      await conn.query('UPDATE users SET loyalty_points = loyalty_points + ? WHERE id = ?',
-        [order.loyalty_points_used, req.user.id]);
+    if (order.diem_su_dung > 0) {
+      await conn.query(
+        'UPDATE nguoi_dung SET diem_tich_luy = diem_tich_luy + ? WHERE ma_nguoi_dung = ?',
+        [order.diem_su_dung, req.user.id]
+      );
     }
 
-    await conn.query("UPDATE orders SET status = 'cancelled' WHERE id = ?", [id]);
+    await conn.query("UPDATE don_hang SET trang_thai = 'da_huy' WHERE ma_don_hang = ?", [id]);
     await conn.query(
-      'INSERT INTO notifications (user_id, title, content, type, ref_id) VALUES (?, ?, ?, ?, ?)',
-      [req.user.id, 'Đơn hàng đã hủy', `Đơn hàng #${order.order_code} đã được hủy thành công.`, 'order', order.order_code]
+      `INSERT INTO thong_bao (ma_nguoi_dung, tieu_de, noi_dung, loai, ma_tham_chieu)
+       VALUES (?, ?, ?, ?, ?)`,
+      [req.user.id, 'Đơn hàng đã hủy',
+       `Đơn hàng #${order.ma_code} đã được hủy thành công.`, 'don_hang', order.ma_code]
     );
 
     await conn.commit();

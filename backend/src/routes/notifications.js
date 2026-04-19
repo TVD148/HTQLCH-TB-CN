@@ -4,32 +4,39 @@ const { verifyToken } = require('../middleware/auth');
 
 router.use(verifyToken);
 
+// GET /api/notifications
 router.get('/', async (req, res, next) => {
   try {
     const [notifs] = await db.query(
-      'SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 30',
+      `SELECT ma_thong_bao AS id, tieu_de AS title, noi_dung AS content,
+              loai AS type, da_doc AS is_read, ma_tham_chieu AS ref_id, ngay_tao AS created_at
+       FROM thong_bao WHERE ma_nguoi_dung = ? ORDER BY ngay_tao DESC LIMIT 30`,
       [req.user.id]
     );
     const [[{ unread }]] = await db.query(
-      'SELECT COUNT(*) as unread FROM notifications WHERE user_id = ? AND is_read = 0',
+      'SELECT COUNT(*) AS unread FROM thong_bao WHERE ma_nguoi_dung = ? AND da_doc = 0',
       [req.user.id]
     );
     res.json({ success: true, data: notifs, unread });
   } catch (err) { next(err); }
 });
 
-router.patch('/:id/read', async (req, res, next) => {
+// PATCH /api/notifications/read-all
+router.patch('/read-all', async (req, res, next) => {
   try {
-    await db.query('UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ?',
-      [req.params.id, req.user.id]);
-    res.json({ success: true });
+    await db.query('UPDATE thong_bao SET da_doc = 1 WHERE ma_nguoi_dung = ?', [req.user.id]);
+    res.json({ success: true, message: 'Đã đánh dấu tất cả là đã đọc' });
   } catch (err) { next(err); }
 });
 
-router.patch('/read-all', async (req, res, next) => {
+// PATCH /api/notifications/:id/read
+router.patch('/:id/read', async (req, res, next) => {
   try {
-    await db.query('UPDATE notifications SET is_read = 1 WHERE user_id = ?', [req.user.id]);
-    res.json({ success: true, message: 'Đã đánh dấu tất cả là đã đọc' });
+    await db.query(
+      'UPDATE thong_bao SET da_doc = 1 WHERE ma_thong_bao = ? AND ma_nguoi_dung = ?',
+      [req.params.id, req.user.id]
+    );
+    res.json({ success: true });
   } catch (err) { next(err); }
 });
 

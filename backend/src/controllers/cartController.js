@@ -1,38 +1,36 @@
 const db = require('../config/database');
 
-/**
- * GET /api/cart  - Lấy giỏ hàng của user
- */
+/** GET /api/cart */
 const getCart = async (req, res, next) => {
   try {
-    const [cart] = await db.query('SELECT id FROM carts WHERE user_id = ?', [req.user.id]);
+    const [cart] = await db.query(
+      'SELECT ma_gio_hang FROM gio_hang WHERE ma_nguoi_dung = ?', [req.user.id]
+    );
     if (!cart.length) {
       return res.json({ success: true, data: { items: [], subtotal: 0, item_count: 0 } });
     }
 
     const [items] = await db.query(
-      `SELECT ci.id, ci.quantity, ci.unit_price,
-              p.id as product_id, p.name, p.slug, p.thumbnail,
-              p.price as current_price, p.sale_price, p.stock_quantity,
-              (ci.quantity * ci.unit_price) as subtotal
-       FROM cart_items ci
-       JOIN products p ON p.id = ci.product_id
-       WHERE ci.cart_id = ? AND p.is_active = 1`,
-      [cart[0].id]
+      `SELECT ctgh.ma_chi_tiet AS id, ctgh.so_luong AS quantity, ctgh.don_gia AS unit_price,
+              sp.ma_san_pham AS product_id, sp.ten_san_pham AS name, sp.duong_dan AS slug,
+              sp.anh_dai_dien AS thumbnail,
+              sp.gia_goc AS current_price, sp.gia_khuyen_mai AS sale_price,
+              sp.so_luong_ton AS stock_quantity,
+              (ctgh.so_luong * ctgh.don_gia) AS subtotal
+       FROM chi_tiet_gio_hang ctgh
+       JOIN san_pham sp ON sp.ma_san_pham = ctgh.ma_san_pham
+       WHERE ctgh.ma_gio_hang = ? AND sp.trang_thai = 1`,
+      [cart[0].ma_gio_hang]
     );
 
-    const subtotal = items.reduce((sum, i) => sum + parseFloat(i.subtotal), 0);
+    const subtotal   = items.reduce((sum, i) => sum + parseFloat(i.subtotal), 0);
     const item_count = items.reduce((sum, i) => sum + i.quantity, 0);
 
     res.json({ success: true, data: { items, subtotal, item_count } });
-  } catch (err) {
-    next(err);
-  }
+  } catch (err) { next(err); }
 };
 
-/**
- * POST /api/cart/add  - Thêm sản phẩm vào giỏ
- */
+/** POST /api/cart/add */
 const addToCart = async (req, res, next) => {
   try {
     const { product_id, quantity = 1 } = req.body;
@@ -41,9 +39,9 @@ const addToCart = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Dữ liệu không hợp lệ' });
     }
 
-    // Kiểm tra sản phẩm & tồn kho
     const [products] = await db.query(
-      'SELECT id, price, sale_price, stock_quantity FROM products WHERE id = ? AND is_active = 1',
+      `SELECT ma_san_pham, gia_goc AS price, gia_khuyen_mai AS sale_price, so_luong_ton AS stock_quantity
+       FROM san_pham WHERE ma_san_pham = ? AND trang_thai = 1`,
       [product_id]
     );
     if (!products.length) {
@@ -53,23 +51,22 @@ const addToCart = async (req, res, next) => {
     const product = products[0];
     const unitPrice = product.sale_price || product.price;
 
-    // Lấy cart của user
-    const [cartRows] = await db.query('SELECT id FROM carts WHERE user_id = ?', [req.user.id]);
+    // Lấy hoặc tạo giỏ hàng
+    const [cartRows] = await db.query('SELECT ma_gio_hang FROM gio_hang WHERE ma_nguoi_dung = ?', [req.user.id]);
     let cartId;
     if (!cartRows.length) {
-      const [r] = await db.query('INSERT INTO carts (user_id) VALUES (?)', [req.user.id]);
+      const [r] = await db.query('INSERT INTO gio_hang (ma_nguoi_dung) VALUES (?)', [req.user.id]);
       cartId = r.insertId;
     } else {
-      cartId = cartRows[0].id;
+      cartId = cartRows[0].ma_gio_hang;
     }
 
-    // Kiểm tra đã có trong giỏ chưa
     const [existing] = await db.query(
-      'SELECT id, quantity FROM cart_items WHERE cart_id = ? AND product_id = ?',
+      'SELECT ma_chi_tiet, so_luong FROM chi_tiet_gio_hang WHERE ma_gio_hang = ? AND ma_san_pham = ?',
       [cartId, product_id]
     );
 
-    const newQty = existing.length ? existing[0].quantity + quantity : quantity;
+    const newQty = existing.length ? existing[0].so_luong + quantity : quantity;
 
     if (newQty > product.stock_quantity) {
       return res.status(400).json({
@@ -80,35 +77,25 @@ const addToCart = async (req, res, next) => {
 
     if (existing.length) {
       await db.query(
-        'UPDATE cart_items SET quantity = ?, unit_price = ? WHERE id = ?',
-        [newQty, unitPrice, existing[0].id]
+        'UPDATE chi_tiet_gio_hang SET so_luong = ?, don_gia = ? WHERE ma_chi_tiet = ?',
+        [newQty, unitPrice, existing[0].ma_chi_tiet]
       );
     } else {
       await db.query(
-        'INSERT INTO cart_items (cart_id, product_id, quantity, unit_price) VALUES (?, ?, ?, ?)',
+        'INSERT INTO chi_tiet_gio_hang (ma_gio_hang, ma_san_pham, so_luong, don_gia) VALUES (?, ?, ?, ?)',
         [cartId, product_id, quantity, unitPrice]
       );
     }
 
-    // Trả về số lượng trong giỏ
     const [countResult] = await db.query(
-      'SELECT SUM(quantity) as item_count FROM cart_items WHERE cart_id = ?',
-      [cartId]
+      'SELECT SUM(so_luong) AS item_count FROM chi_tiet_gio_hang WHERE ma_gio_hang = ?', [cartId]
     );
 
-    res.json({
-      success: true,
-      message: 'Đã thêm vào giỏ hàng!',
-      data: { item_count: countResult[0].item_count || 0 },
-    });
-  } catch (err) {
-    next(err);
-  }
+    res.json({ success: true, message: 'Đã thêm vào giỏ hàng!', data: { item_count: countResult[0].item_count || 0 } });
+  } catch (err) { next(err); }
 };
 
-/**
- * PUT /api/cart/items/:id  - Cập nhật số lượng
- */
+/** PUT /api/cart/items/:id */
 const updateCartItem = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -118,60 +105,49 @@ const updateCartItem = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Số lượng không hợp lệ' });
     }
 
-    // Verify item thuộc về giỏ của user
-    const [cart] = await db.query('SELECT id FROM carts WHERE user_id = ?', [req.user.id]);
+    const [cart] = await db.query('SELECT ma_gio_hang FROM gio_hang WHERE ma_nguoi_dung = ?', [req.user.id]);
     const [item] = await db.query(
-      'SELECT ci.*, p.stock_quantity FROM cart_items ci JOIN products p ON p.id = ci.product_id WHERE ci.id = ? AND ci.cart_id = ?',
-      [id, cart[0]?.id]
+      `SELECT ctgh.*, sp.so_luong_ton AS stock_quantity
+       FROM chi_tiet_gio_hang ctgh
+       JOIN san_pham sp ON sp.ma_san_pham = ctgh.ma_san_pham
+       WHERE ctgh.ma_chi_tiet = ? AND ctgh.ma_gio_hang = ?`,
+      [id, cart[0]?.ma_gio_hang]
     );
 
     if (!item.length) {
       return res.status(404).json({ success: false, message: 'Sản phẩm không có trong giỏ' });
     }
-
     if (quantity > item[0].stock_quantity) {
       return res.status(400).json({ success: false, message: `Chỉ còn ${item[0].stock_quantity} sản phẩm` });
     }
 
-    await db.query('UPDATE cart_items SET quantity = ? WHERE id = ?', [quantity, id]);
+    await db.query('UPDATE chi_tiet_gio_hang SET so_luong = ? WHERE ma_chi_tiet = ?', [quantity, id]);
     res.json({ success: true, message: 'Đã cập nhật số lượng' });
-  } catch (err) {
-    next(err);
-  }
+  } catch (err) { next(err); }
 };
 
-/**
- * DELETE /api/cart/items/:id  - Xóa item khỏi giỏ
- */
+/** DELETE /api/cart/items/:id */
 const removeCartItem = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const [cart] = await db.query('SELECT id FROM carts WHERE user_id = ?', [req.user.id]);
-    await db.query('DELETE FROM cart_items WHERE id = ? AND cart_id = ?', [id, cart[0]?.id]);
+    const [cart] = await db.query('SELECT ma_gio_hang FROM gio_hang WHERE ma_nguoi_dung = ?', [req.user.id]);
+    await db.query('DELETE FROM chi_tiet_gio_hang WHERE ma_chi_tiet = ? AND ma_gio_hang = ?', [id, cart[0]?.ma_gio_hang]);
     res.json({ success: true, message: 'Đã xóa sản phẩm khỏi giỏ' });
-  } catch (err) {
-    next(err);
-  }
+  } catch (err) { next(err); }
 };
 
-/**
- * DELETE /api/cart/clear  - Xóa toàn bộ giỏ hàng
- */
+/** DELETE /api/cart/clear */
 const clearCart = async (req, res, next) => {
   try {
-    const [cart] = await db.query('SELECT id FROM carts WHERE user_id = ?', [req.user.id]);
+    const [cart] = await db.query('SELECT ma_gio_hang FROM gio_hang WHERE ma_nguoi_dung = ?', [req.user.id]);
     if (cart.length) {
-      await db.query('DELETE FROM cart_items WHERE cart_id = ?', [cart[0].id]);
+      await db.query('DELETE FROM chi_tiet_gio_hang WHERE ma_gio_hang = ?', [cart[0].ma_gio_hang]);
     }
     res.json({ success: true, message: 'Đã xóa toàn bộ giỏ hàng' });
-  } catch (err) {
-    next(err);
-  }
+  } catch (err) { next(err); }
 };
 
-/**
- * POST /api/cart/apply-voucher  - Áp dụng mã voucher
- */
+/** POST /api/cart/apply-voucher */
 const applyVoucher = async (req, res, next) => {
   try {
     const { code, cart_total } = req.body;
@@ -181,9 +157,9 @@ const applyVoucher = async (req, res, next) => {
     }
 
     const [vouchers] = await db.query(
-      `SELECT * FROM vouchers
-       WHERE code = ? AND is_active = 1
-       AND start_date <= NOW() AND expired_at >= NOW()`,
+      `SELECT * FROM ma_giam_gia
+       WHERE ma_code = ? AND trang_thai = 1
+       AND ngay_bat_dau <= NOW() AND ngay_het_han >= NOW()`,
       [code.toUpperCase()]
     );
 
@@ -191,37 +167,33 @@ const applyVoucher = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Mã voucher không hợp lệ hoặc đã hết hạn' });
     }
 
-    const voucher = vouchers[0];
+    const v = vouchers[0];
 
-    if (voucher.used_count >= voucher.max_uses) {
+    if (v.da_su_dung >= v.so_lan_toi_da) {
       return res.status(400).json({ success: false, message: 'Mã voucher đã hết lượt sử dụng' });
     }
 
-    if (parseFloat(cart_total) < parseFloat(voucher.min_order_value)) {
+    if (parseFloat(cart_total) < parseFloat(v.don_hang_toi_thieu)) {
       return res.status(400).json({
         success: false,
-        message: `Đơn hàng tối thiểu ${Number(voucher.min_order_value).toLocaleString('vi-VN')}đ mới áp dụng được mã này`,
+        message: `Đơn hàng tối thiểu ${Number(v.don_hang_toi_thieu).toLocaleString('vi-VN')}đ mới áp dụng được mã này`,
       });
     }
 
-    // Kiểm tra user đã dùng chưa
     const [usages] = await db.query(
-      'SELECT COUNT(*) as cnt FROM voucher_usages WHERE voucher_id = ? AND user_id = ?',
-      [voucher.id, req.user.id]
+      'SELECT COUNT(*) AS cnt FROM lich_su_voucher WHERE ma_voucher = ? AND ma_nguoi_dung = ?',
+      [v.ma_voucher, req.user.id]
     );
-    if (usages[0].cnt >= voucher.max_uses_per_user) {
+    if (usages[0].cnt >= v.gioi_han_moi_nguoi) {
       return res.status(400).json({ success: false, message: 'Bạn đã sử dụng mã này rồi' });
     }
 
-    // Tính giảm giá
     let discount = 0;
-    if (voucher.discount_type === 'percent') {
-      discount = (parseFloat(cart_total) * parseFloat(voucher.discount_value)) / 100;
-      if (voucher.max_discount_amount) {
-        discount = Math.min(discount, parseFloat(voucher.max_discount_amount));
-      }
+    if (v.loai_giam === 'percent') {
+      discount = (parseFloat(cart_total) * parseFloat(v.gia_tri_giam)) / 100;
+      if (v.giam_toi_da) discount = Math.min(discount, parseFloat(v.giam_toi_da));
     } else {
-      discount = parseFloat(voucher.discount_value);
+      discount = parseFloat(v.gia_tri_giam);
     }
 
     discount = Math.min(discount, parseFloat(cart_total));
@@ -231,16 +203,14 @@ const applyVoucher = async (req, res, next) => {
       success: true,
       message: `Áp dụng mã thành công! Giảm ${discount.toLocaleString('vi-VN')}đ`,
       data: {
-        voucher_id:      voucher.id,
-        voucher_code:    voucher.code,
-        voucher_name:    voucher.name,
+        voucher_id:      v.ma_voucher,
+        voucher_code:    v.ma_code,
+        voucher_name:    v.ten_voucher,
         discount_amount: discount,
         final_total,
       },
     });
-  } catch (err) {
-    next(err);
-  }
+  } catch (err) { next(err); }
 };
 
 module.exports = { getCart, addToCart, updateCartItem, removeCartItem, clearCart, applyVoucher };

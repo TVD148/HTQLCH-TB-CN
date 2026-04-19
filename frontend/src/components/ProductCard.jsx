@@ -2,6 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Heart, BarChart2, ShoppingCart, Star } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
+import { useCompare } from '../context/CompareContext';
 import { wishlistApi } from '../api';
 import toast from 'react-hot-toast';
 
@@ -14,8 +15,10 @@ const calcDiscount = (price, salePrice) =>
 export default function ProductCard({ product, wishlistIds = [] }) {
   const { user } = useAuth();
   const { addToCart } = useCart();
+  const { addToCompare, isInCompare } = useCompare();
   const navigate = useNavigate();
   const isWished = wishlistIds.includes(product.id);
+  const inCompare = isInCompare(product.id);
 
   const handleWishlist = async (e) => {
     e.preventDefault();
@@ -37,6 +40,21 @@ export default function ProductCard({ product, wishlistIds = [] }) {
     }
   };
 
+  const handleCompare = (e) => {
+    e.preventDefault();
+    addToCompare({
+      id:         product.id,
+      slug:       product.slug,
+      name:       product.name,
+      thumbnail:  product.thumbnail,
+      price:      product.price,
+      sale_price: product.sale_price,
+      brand_name: product.brand_name,
+      avg_rating: product.avg_rating,
+      stock_quantity: product.stock_quantity,
+    });
+  };
+
   const discountPct = calcDiscount(product.price, product.sale_price);
   const displayPrice = product.sale_price || product.price;
 
@@ -49,7 +67,6 @@ export default function ProductCard({ product, wishlistIds = [] }) {
           alt={product.name}
           className="product-card__img"
           onError={e => {
-            // Fallback to a clean colored placeholder
             e.target.src = `https://placehold.co/300x225/0F172A/3B82F6?text=${encodeURIComponent('TechStore')}`;
           }}
         />
@@ -72,25 +89,23 @@ export default function ProductCard({ product, wishlistIds = [] }) {
           >
             <Heart size={15} fill={isWished ? 'currentColor' : 'none'} />
           </button>
-          {/* So sánh — dùng button+navigate thay vì Link lồng trong Link */}
           <button
-            className="product-card__action-btn"
-            onClick={e => { e.preventDefault(); navigate(`/compare?ids=${product.slug}`); }}
-            title="So sánh"
+            className={`product-card__action-btn ${inCompare ? 'active' : ''}`}
+            onClick={handleCompare}
+            title={inCompare ? 'Đã thêm vào so sánh' : 'So sánh'}
+            style={inCompare ? { color: 'var(--accent)', background: 'rgba(59,130,246,0.18)' } : {}}
           >
             <BarChart2 size={15} />
           </button>
         </div>
       </div>
 
-      {/* Body — flex column, nút luôn ở đáy */}
+      {/* Body */}
       <div className="product-card__body">
-        {/* Top info block */}
         <div className="product-card__info">
           <div className="product-card__brand">{product.brand_name}</div>
           <div className="product-card__name">{product.name}</div>
 
-          {/* Rating */}
           {product.avg_rating > 0 && (
             <div className="product-card__rating">
               <Star size={12} fill="currentColor" />
@@ -99,7 +114,6 @@ export default function ProductCard({ product, wishlistIds = [] }) {
             </div>
           )}
 
-          {/* Price */}
           <div className="product-card__price">
             <span className={product.sale_price ? 'price-sale' : 'price-current'}>
               {formatPrice(displayPrice)}
@@ -110,7 +124,6 @@ export default function ProductCard({ product, wishlistIds = [] }) {
           </div>
         </div>
 
-        {/* Button — luôn ở đáy nhờ margin-top: auto */}
         <button
           className="btn btn-primary btn-full btn-sm product-card__cart-btn"
           onClick={handleAddCart}
