@@ -37,12 +37,7 @@ const register = async (req, res, next) => {
       return res.status(400).json({ success: false, errors: errors.array() });
     }
 
-    const { name, email, password, phone, address, first_name, last_name } = req.body;
-
-    // Tính first_name và last_name tự động nếu frontend gửi full name
-    const nameParts   = name.trim().split(/\s+/);
-    const fName       = first_name || (nameParts.length >= 1 ? nameParts[nameParts.length - 1] : name);
-    const lName       = last_name  || (nameParts.length >= 2 ? nameParts[0] : '');
+    const { name, email, password, phone, address } = req.body;
 
     // Kiểm tra email đã tồn tại
     const [existing] = await db.query('SELECT id FROM users WHERE email = ?', [email]);
@@ -53,8 +48,8 @@ const register = async (req, res, next) => {
     const password_hash = await bcrypt.hash(password, 10);
 
     const [result] = await db.query(
-      'INSERT INTO users (name, first_name, last_name, email, password_hash, phone, address) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [name, fName, lName, email, password_hash, phone || null, address || null]
+      'INSERT INTO users (name, email, password_hash, phone, address) VALUES (?, ?, ?, ?, ?)',
+      [name, email, password_hash, phone || null, address || null]
     );
 
     const userId = result.insertId;

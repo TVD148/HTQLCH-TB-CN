@@ -1,13 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, NavLink } from 'react-router-dom';
-import { ShoppingCart, Heart, Bell, Search, Zap, User, LogOut, Package, Shield, ChevronDown } from 'lucide-react';
+import { ShoppingCart, Heart, Bell, Search, Zap, User, LogOut, Package, Shield, ChevronDown, Sun, Moon } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
+import { useTheme } from '../context/ThemeContext';
 import { notificationApi } from '../api';
 
 export default function Header() {
   const { user, logout, isAdmin } = useAuth();
   const { cart } = useCart();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const [search, setSearch]   = useState('');
   const [scrolled, setScrolled] = useState(false);
@@ -85,6 +87,11 @@ export default function Header() {
 
         {/* Actions */}
         <div className="header__actions">
+          {/* Theme Toggle */}
+          <button onClick={toggleTheme} className="header__icon-btn" title="Đổi giao diện">
+            {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+          </button>
+
           {/* Wishlist */}
           {user && (
             <Link to="/wishlist" className="header__icon-btn" title="Yêu thích">

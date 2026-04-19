@@ -107,7 +107,7 @@ export default function HomePage() {
               {featuredProducts.slice(0, 2).map(p => (
                 <Link key={p.id} to={`/shop/${p.slug}`} style={{
                   display: 'flex', gap: 14, padding: 16,
-                  background: 'rgba(30,41,59,0.8)', border: '1px solid var(--border)',
+                  background: 'var(--surface-2)', border: '1px solid var(--border)',
                   borderRadius: 'var(--radius-lg)', backdropFilter: 'blur(10px)',
                   transition: 'all var(--transition)',
                 }}
@@ -116,7 +116,7 @@ export default function HomePage() {
                 >
                   <img src={p.thumbnail} alt={p.name}
                     style={{ width: 80, height: 60, objectFit: 'cover', borderRadius: 8, background: 'var(--surface-3)' }}
-                    onError={e => { e.target.src = `https://placehold.co/80x60/1E293B/3B82F6?text=Tech`; }}
+                    onError={e => { e.target.src = `https://placehold.co/80x60/334155/3B82F6?text=Tech`; }}
                   />
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: '0.82rem', color: 'var(--accent)', fontWeight: 600 }}>{p.brand_name}</div>
@@ -267,7 +267,7 @@ export default function HomePage() {
       <section className="section-sm">
         <div className="container">
           <div style={{
-            background: 'linear-gradient(135deg, #1E293B, #0F172A)',
+            background: 'linear-gradient(135deg, var(--surface-2), var(--surface-1))',
             border: '1px solid rgba(245,158,11,0.3)',
             borderRadius: 'var(--radius-xl)',
             padding: '40px 48px',

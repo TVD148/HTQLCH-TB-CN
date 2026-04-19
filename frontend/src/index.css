@@ -1,12 +1,12 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+/* Font Inter được load qua <link> trong index.html */
 
 /* ===============================================
    CSS VARIABLES – Design Tokens
    =============================================== */
 :root {
-  /* Colors */
-  --primary:        #0F172A;
-  --primary-light:  #1E293B;
+  /* [LIGHT THEME] Colors */
+  --primary:        #F8FAFC;
+  --primary-light:  #F1F5F9;
   --accent:         #3B82F6;
   --accent-hover:   #2563EB;
   --accent-light:   rgba(59,130,246,0.12);
@@ -16,22 +16,23 @@
   --red:            #EF4444;
   --red-light:      rgba(239,68,68,0.12);
 
-  /* Text */
-  --text-primary:   #F8FAFC;
-  --text-secondary: #94A3B8;
+  /* [LIGHT THEME] Text */
+  --text-primary:   #1E293B;
+  --text-secondary: #475569;
   --text-muted:     #64748B;
 
-  /* Surface */
-  --surface-1:      #0F172A;
-  --surface-2:      #1E293B;
-  --surface-3:      #334155;
-  --border:         rgba(148,163,184,0.15);
-  --border-hover:   rgba(148,163,184,0.3);
+  /* [LIGHT THEME] Surface */
+  --surface-1:      #FFFFFF;
+  --surface-2:      #F8FAFC;
+  --surface-3:      #F1F5F9;
+  --header-bg:      rgba(255,255,255,0.95);
+  --border:         rgba(15,23,42,0.1);
+  --border-hover:   rgba(15,23,42,0.2);
 
-  /* Shadows */
-  --shadow-sm:      0 1px 3px rgba(0,0,0,0.3);
-  --shadow-md:      0 4px 20px rgba(0,0,0,0.4);
-  --shadow-lg:      0 8px 40px rgba(0,0,0,0.5);
+  /* [LIGHT THEME] Shadows */
+  --shadow-sm:      0 1px 3px rgba(0,0,0,0.1);
+  --shadow-md:      0 4px 10px rgba(0,0,0,0.1);
+  --shadow-lg:      0 8px 30px rgba(0,0,0,0.15);
   --glow:           0 0 30px rgba(59,130,246,0.2);
 
   /* Radius */
@@ -47,6 +48,39 @@
   /* Transitions */
   --transition:     0.2s ease;
   --transition-slow:0.4s ease;
+}
+
+[data-theme="dark"] {
+  /* [DARK THEME] Colors */
+  --primary:        #0F172A;
+  --primary-light:  #1E293B;
+  --accent:         #3B82F6;
+  --accent-hover:   #2563EB;
+  --accent-light:   rgba(59,130,246,0.12);
+  --emerald:        #10B981;
+  --emerald-light:  rgba(16,185,129,0.12);
+  --amber:          #F59E0B;
+  --red:            #EF4444;
+  --red-light:      rgba(239,68,68,0.12);
+
+  /* [DARK THEME] Text */
+  --text-primary:   #F8FAFC;
+  --text-secondary: #94A3B8;
+  --text-muted:     #64748B;
+
+  /* [DARK THEME] Surface */
+  --surface-1:      #0F172A;
+  --surface-2:      #1E293B;
+  --surface-3:      #334155;
+  --header-bg:      rgba(15,23,42,0.95);
+  --border:         rgba(148,163,184,0.15);
+  --border-hover:   rgba(148,163,184,0.3);
+
+  /* [DARK THEME] Shadows */
+  --shadow-sm:      0 1px 3px rgba(0,0,0,0.3);
+  --shadow-md:      0 4px 20px rgba(0,0,0,0.4);
+  --shadow-lg:      0 8px 40px rgba(0,0,0,0.5);
+  --glow:           0 0 30px rgba(59,130,246,0.2);
 }
 
 /* ===============================================
@@ -442,7 +476,7 @@ ul, ol { list-style: none; }
   left: 0;
   right: 0;
   height: var(--header-h);
-  background: rgba(15,23,42,0.95);
+  background: var(--header-bg);
   backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--border);
   z-index: 1000;
@@ -615,7 +649,7 @@ ul, ol { list-style: none; }
    HERO BANNER
    =============================================== */
 .hero {
-  background: linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #0F172A 100%);
+  background: linear-gradient(135deg, var(--surface-1) 0%, var(--surface-2) 50%, var(--surface-1) 100%);
   padding: 80px 0;
   position: relative;
   overflow: hidden;
@@ -664,7 +698,7 @@ ul, ol { list-style: none; }
   font-weight: 900;
   line-height: 1.1;
   margin-bottom: 16px;
-  background: linear-gradient(135deg, #F8FAFC, #94A3B8);
+  background: linear-gradient(135deg, var(--text-primary), var(--text-muted));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -752,7 +786,7 @@ ul, ol { list-style: none; }
    FLASH SALE BANNER
    =============================================== */
 .flash-sale {
-  background: linear-gradient(135deg, #1E293B, #0F172A);
+  background: linear-gradient(135deg, var(--surface-2), var(--surface-1));
   border: 1px solid rgba(239,68,68,0.3);
   border-radius: var(--radius-xl);
   padding: 24px 28px;
