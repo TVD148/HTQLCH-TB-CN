@@ -1,0 +1,122 @@
+@startuml 10_sequence_baohanh_loyalty
+!theme cerulean-outline
+title Sơ đồ Tuần tự - Bảo hành & Chương trình Tích điểm
+
+skinparam sequenceArrowThickness 2
+skinparam roundcorner 10
+
+actor "Khách hàng" as KH #LightGreen
+actor "Nhân viên" as NV #LightYellow
+participant "React FE" as FE #LightBlue
+participant "Warranty\nController" as WC #Orange
+participant "Loyalty\nService" as LS #Violet
+participant "Notification\nService" as NS #Pink
+participant "MySQL DB" as DB #LightCoral
+
+== YÊU CẦU BẢO HÀNH ==
+KH -> FE : Vào "Đơn hàng của tôi"\n→ Chọn SP → "Yêu cầu bảo hành"
+activate FE
+FE -> WC : POST /api/warranty\n{order_item_id, serial_number,\nissue_description}\n[JWT Bearer]
+activate WC
+
+WC -> DB : SELECT oi.*, o.created_at, p.name\nFROM order_items oi\nJOIN orders o ON o.id=oi.order_id\nJOIN products p ON p.id=oi.product_id\nWHERE oi.id=? AND o.user_id=?\nAND o.status='delivered'
+activate DB
+DB --> WC : Order item data
+deactivate DB
+
+WC -> WC : Kiểm tra thời hạn bảo hành\n(12 tháng từ ngày nhận hàng)
+
+alt Còn trong thời hạn bảo hành
+  WC -> DB : INSERT INTO warranty_requests\n(user_id, order_item_id, serial_number,\nissue_description, status='pending',\nreceived_at=NOW())
+  activate DB
+  DB --> WC : warranty_id
+  deactivate DB
+  WC -> NS : sendNotification(user_id,\n"Phiếu BH #"+id+" đã tiếp nhận")
+  WC -> NS : sendNotification(staff_ids,\n"Có yêu cầu bảo hành mới #"+id)
+  activate NS
+  NS -> DB : INSERT INTO notifications (bulk)
+  NS --> WC : Sent
+  deactivate NS
+  WC --> FE : 201 { warrantyRequest }
+  FE --> KH : ✅ "Yêu cầu bảo hành đã tiếp nhận\nMã phiếu: #WR-2026-XXXX"
+
+else Hết hạn bảo hành
+  WC --> FE : 400 { message: "Sản phẩm đã hết thời hạn bảo hành" }
+  FE --> KH : ❌ "Sản phẩm đã quá 12 tháng bảo hành"
+end
+deactivate WC
+deactivate FE
+
+== XỬ LÝ BẢO HÀNH (Nhân viên) ==
+NV -> FE : Xem danh sách phiếu bảo hành
+activate FE
+FE -> WC : GET /api/admin/warranty?status=pending\n[JWT Bearer, role=staff|admin]
+activate WC
+WC -> DB : SELECT wr.*, u.name, u.phone,\np.name as product_name\nFROM warranty_requests wr\nJOIN users u ON u.id=wr.user_id\nJOIN order_items oi ON oi.id=wr.order_item_id\nJOIN products p ON p.id=oi.product_id\nWHERE wr.status='pending'
+activate DB
+DB --> WC : Warranty list
+deactivate DB
+WC --> FE : 200 { warranties }
+FE --> NV : Danh sách phiếu bảo hành
+deactivate WC
+
+NV -> FE : Nhấn "Cập nhật" → Chọn "Đang xử lý"
+FE -> WC : PATCH /api/admin/warranty/:id/status\n{status: "processing",\nassigned_staff_id: nv_id}
+activate WC
+WC -> DB : UPDATE warranty_requests\nSET status='processing',\nassigned_staff_id=?\nWHERE id=?
+DB --> WC : Updated
+WC -> NS : Notify KH: "Phiếu #ID đang được xử lý"
+WC --> FE : 200 { warrantyRequest }
+FE --> NV : ✅ Đã cập nhật
+deactivate WC
+deactivate FE
+
+NV -> FE : Hoàn thành bảo hành
+activate FE
+FE -> WC : PATCH /api/admin/warranty/:id/status\n{status: "completed", resolution_note: "..."}
+activate WC
+WC -> DB : UPDATE warranty_requests\nSET status='completed',\nresolution_note=?,\ncompleted_at=NOW() WHERE id=?
+DB --> WC : Updated
+WC -> NS : Notify KH: "SP của bạn đã sửa xong!"
+WC --> FE : 200
+FE --> NV : ✅ Bảo hành hoàn tất
+deactivate WC
+deactivate FE
+
+== TÍCH ĐIỂM & SỬ DỤNG ĐIỂM ==
+note over KH, DB
+  Tích điểm: 1% giá trị đơn hàng → 1 điểm = 1.000đ
+  Đơn 5.000.000đ → được 50 điểm = 50.000đ
+end note
+
+KH -> FE : Xem số điểm tích lũy
+activate FE
+FE -> LS : GET /api/loyalty/balance\n[JWT Bearer]
+activate LS
+LS -> DB : SELECT loyalty_points FROM users\nWHERE id=?
+activate DB
+DB --> LS : { loyalty_points: 250 }
+deactivate DB
+LS --> FE : 200 { points: 250, value: "250.000đ" }
+FE --> KH : 💎 Điểm tích lũy: 250 điểm = 250.000đ
+deactivate LS
+deactivate FE
+
+KH -> FE : Thanh toán bằng điểm (một phần)
+activate FE
+FE -> LS : POST /api/cart/apply-points\n{pointsToUse: 100}\n[JWT Bearer]
+activate LS
+LS -> DB : SELECT loyalty_points FROM users WHERE id=?
+DB --> LS : 250 points
+alt Đủ điểm
+  LS -> LS : Validate: 100 <= 250\nDeduction: 100 điểm = 100.000đ
+  LS --> FE : 200 { deduction: 100000,\nupdated_total: X }
+  FE --> KH : ✅ Giảm 100.000đ từ điểm tích lũy
+else Không đủ điểm
+  LS --> FE : 400 { message: "Không đủ điểm" }
+  FE --> KH : ❌ "Bạn chỉ có 250 điểm (250.000đ)"
+end
+deactivate LS
+deactivate FE
+
+@enduml

@@ -1,0 +1,197 @@
+@startuml 09_component_diagram
+!theme cerulean-outline
+title Sơ đồ Thành phần (Component Diagram)\nKiến trúc Hệ thống HTTT01
+
+skinparam componentStyle rectangle
+skinparam rectangle {
+  BackgroundColor #EBF5FB
+  BorderColor #2471A3
+}
+
+package "🌐 Client Layer" {
+  [Browser / Mobile Web] as CLIENT
+}
+
+package "⚛️ Frontend - ReactJS (Vite)" {
+  package "Pages" {
+    [HomePage] as HP
+    [ShopPage] as SP
+    [ProductDetailPage] as PDP
+    [CartPage] as CP
+    [CheckoutPage] as CKP
+    [OrdersPage] as ORP
+    [LoginPage / RegisterPage] as AUTH
+    [AdminDashboard] as ADMIN
+    [WishlistPage] as WL
+    [WarrantyPage] as WR
+  }
+
+  package "Shared Components" {
+    [Header / Navbar] as NAV
+    [Footer] as FOOT
+    [ProductCard] as PCARD
+    [ProductFilter] as PFILT
+    [VoucherInput] as VINP
+    [SearchBar] as SBAR
+    [Pagination] as PAG
+    [StarRating] as STAR
+    [NotificationBell] as NOTIF
+  }
+
+  package "State Management" {
+    [AuthContext] as ACTX
+    [CartContext] as CCTX
+    [WishlistContext] as WCTX
+  }
+
+  package "API Layer" {
+    [axiosInstance\n(JWT Interceptor)] as AXI
+    [authApi] as AAPI
+    [productApi] as PAPI
+    [cartApi] as CAPI
+    [orderApi] as OAPI
+    [voucherApi] as VAPI
+    [adminApi] as ADAPI
+  }
+
+  [React Router v6] as ROUTER
+}
+
+package "🟢 Backend - NodeJS Express" {
+  package "Middleware" {
+    [CORS] as CORS
+    [Morgan Logger] as LOG
+    [verifyToken (JWT)] as VJWT
+    [checkRole (RBAC)] as RBAC
+    [errorHandler] as ERH
+    [multer (Upload)] as MULTER
+  }
+
+  package "Routes" {
+    [/api/auth/*] as RAUTH
+    [/api/products/*] as RPROD
+    [/api/cart/*] as RCART
+    [/api/orders/*] as RORD
+    [/api/reviews/*] as RREV
+    [/api/vouchers/*] as RVCH
+    [/api/wishlist/*] as RWISH
+    [/api/warranty/*] as RWAR
+    [/api/admin/*] as RADM
+    [/api/notifications/*] as RNOT
+  }
+
+  package "Controllers (MVC)" {
+    [AuthController] as CAU
+    [ProductController] as CPROD
+    [CartController] as CCART
+    [OrderController] as CORD
+    [VoucherController] as CVCH
+    [AdminController] as CADM
+    [WarrantyController] as CWAR
+    [ReportController] as CREP
+  }
+
+  package "Services (Business Logic)" {
+    [AuthService] as SAU
+    [ProductService] as SPROD
+    [CartService] as SCART
+    [OrderService] as SORD
+    [VoucherService] as SVCH
+    [InventoryService] as SINV
+    [LoyaltyService] as SLOY
+    [NotificationService] as SNOT
+  }
+
+  package "Models (mysql2)" {
+    [UserModel] as MU
+    [ProductModel] as MP
+    [OrderModel] as MO
+    [VoucherModel] as MV
+    [CartModel] as MC
+    [WarrantyModel] as MW
+    [ReviewModel] as MR
+    [InventoryModel] as MI
+  }
+}
+
+package "🗄️ Database - MySQL 8" {
+  database "htqlch_thietbi_cn" {
+    [users] as TU
+    [products] as TP
+    [categories] as TCA
+    [brands] as TB
+    [orders / order_items] as TO
+    [carts / cart_items] as TC
+    [vouchers / voucher_usages] as TV
+    [reviews] as TR
+    [warranty_requests] as TW
+    [inventory_logs] as TIL
+    [notifications] as TN
+    [wishlists] as TWISH
+    [product_specs / images] as TSPEC
+  }
+}
+
+'============ CONNECTIONS ============
+CLIENT --> ROUTER : HTTP/S Request
+ROUTER --> HP
+ROUTER --> SP
+ROUTER --> PDP
+ROUTER --> CP
+ROUTER --> AUTH
+ROUTER --> ADMIN
+
+HP --> NAV
+SP --> PFILT
+SP --> PCARD
+PDP --> STAR
+CP --> VINP
+AUTH --> ACTX
+
+AXI --> RAUTH
+AXI --> RPROD
+AXI --> RCART
+AXI --> RORD
+AXI --> RVCH
+AXI --> RADM
+
+RAUTH --> VJWT
+RAUTH --> CAU
+RPROD --> CPROD
+RCART --> VJWT
+RCART --> CCART
+RORD --> VJWT
+RORD --> CORD
+RVCH --> CVCH
+RADM --> VJWT
+RADM --> RBAC
+RADM --> CADM
+
+CAU --> SAU
+CPROD --> SPROD
+CCART --> SCART
+CORD --> SORD
+CORD --> SVCH
+CORD --> SLOY
+CORD --> SINV
+CADM --> CREP
+
+SAU --> MU
+SPROD --> MP
+SCART --> MC
+SORD --> MO
+SVCH --> MV
+SINV --> MI
+SLOY --> MU
+SNOT --> MR
+
+MU --> TU
+MP --> TP
+MO --> TO
+MV --> TV
+MC --> TC
+MW --> TW
+MR --> TR
+MI --> TIL
+
+@enduml

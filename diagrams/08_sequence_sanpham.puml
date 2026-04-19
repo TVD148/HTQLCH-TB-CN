@@ -1,0 +1,111 @@
+@startuml 08_sequence_sanpham_timkiem
+!theme cerulean-outline
+title Sơ đồ Tuần tự - Tìm kiếm, Lọc & Xem Sản phẩm
+
+skinparam sequenceArrowThickness 2
+skinparam roundcorner 10
+
+actor "Người dùng" as U #LightGreen
+participant "React\nFrontend" as FE #LightBlue
+participant "Product\nController" as PC #LightYellow
+participant "MySQL DB" as DB #LightCoral
+
+== XEM TRANG DANH SÁCH SẢN PHẨM ==
+U -> FE : Truy cập /shop
+activate FE
+FE -> PC : GET /api/products\n?page=1&limit=12&sort=newest
+activate PC
+PC -> DB : SELECT p.*, c.name as category,\nb.name as brand\nFROM products p\nJOIN categories c ON c.id=p.category_id\nJOIN brands b ON b.id=p.brand_id\nWHERE p.is_active=1\nORDER BY p.created_at DESC\nLIMIT 12 OFFSET 0
+activate DB
+DB --> PC : Products array
+deactivate DB
+PC -> DB : SELECT COUNT(*) FROM products\nWHERE is_active=1
+DB --> PC : total_count
+PC --> FE : 200 { data: [], pagination:\n{ total, page, limit, totalPages } }
+FE --> U : Hiển thị grid sản phẩm + phân trang
+deactivate PC
+deactivate FE
+
+== TÌM KIẾM & LỌC SẢN PHẨM ==
+U -> FE : Nhập từ khóa + chọn bộ lọc\n(danh mục, thương hiệu,\ngiá min-max, đánh giá)
+activate FE
+FE -> PC : GET /api/products\n?search=laptop gaming\n&category=2\n&brand=1,3\n&min_price=15000000\n&max_price=40000000\n&min_rating=4\n&sort=price_asc\n&page=1
+activate PC
+PC -> PC : Build dynamic\nWHERE clause
+PC -> DB : SELECT p.*, c.name, b.name,\nAVG(r.rating) as avg_rating\nFROM products p\nLEFT JOIN reviews r ON r.product_id=p.id\n[dynamic WHERE conditions]\nGROUP BY p.id\nHAVING avg_rating >= 4\nORDER BY p.price ASC\nLIMIT 12 OFFSET 0
+activate DB
+DB --> PC : Filtered products
+deactivate DB
+PC --> FE : 200 { data, pagination, filters_applied }
+FE --> U : Cập nhật kết quả lọc real-time\n(URL cũng cập nhật để share)
+deactivate PC
+deactivate FE
+
+== XEM CHI TIẾT SẢN PHẨM ==
+U -> FE : Click vào sản phẩm
+activate FE
+FE -> PC : GET /api/products/laptop-asus-rog-g14
+activate PC
+
+PC -> DB : SELECT * FROM products\nWHERE slug='laptop-asus-rog-g14'\nAND is_active=1
+activate DB
+DB --> PC : Product record
+deactivate DB
+
+PC -> DB : SELECT * FROM product_specs\nWHERE product_id=?\nORDER BY sort_order
+DB --> PC : Specs array
+
+PC -> DB : SELECT * FROM product_images\nWHERE product_id=?\nORDER BY sort_order
+DB --> PC : Images array
+
+PC -> DB : SELECT r.*, u.name as user_name\nFROM reviews r\nJOIN users u ON u.id=r.user_id\nWHERE r.product_id=?\nAND r.is_approved=1\nORDER BY r.created_at DESC\nLIMIT 5
+DB --> PC : Reviews array
+
+PC -> DB : SELECT p.* FROM products p\nWHERE p.category_id=?\nAND p.id != ?\nAND p.is_active=1\nORDER BY view_count DESC\nLIMIT 8
+DB --> PC : Related products
+
+PC -> DB : UPDATE products SET\nview_count = view_count + 1\nWHERE id=?
+
+PC --> FE : 200 {\n  product, specs, images,\n  reviews, avg_rating,\n  related_products\n}
+FE --> U : Trang chi tiết SP:\n- Gallery ảnh\n- Thông số kỹ thuật\n- Đánh giá sao\n- SP liên quan
+deactivate PC
+deactivate FE
+
+== SO SÁNH SẢN PHẨM ==
+U -> FE : Chọn 2-4 sản phẩm để so sánh
+activate FE
+FE -> PC : GET /api/products/compare\n?ids=5,12,18
+activate PC
+PC -> DB : SELECT p.*, ps.spec_name, ps.spec_value\nFROM products p\nJOIN product_specs ps ON ps.product_id=p.id\nWHERE p.id IN (5,12,18)\nORDER BY p.id, ps.sort_order
+activate DB
+DB --> PC : Products with specs
+deactivate DB
+PC -> PC : Merge & align specs:\nGrouping theo spec_name
+PC --> FE : 200 { products: [\n  { product, specs_map },\n  ...\n] }
+FE --> U : Bảng so sánh thông số kỹ thuật
+deactivate PC
+deactivate FE
+
+== THÊM ĐÁNH GIÁ ==
+U -> FE : Gửi đánh giá (sau khi mua hàng)
+activate FE
+FE -> PC : POST /api/reviews\n{product_id, order_item_id,\nrating, comment}\n[JWT Bearer]
+activate PC
+PC -> DB : SELECT * FROM order_items oi\nJOIN orders o ON o.id=oi.order_id\nWHERE oi.id=? AND o.user_id=?\nAND o.status='delivered'
+activate DB
+DB --> PC : Verify purchase
+deactivate DB
+alt Đã mua hàng (hợp lệ)
+  PC -> DB : INSERT INTO reviews\n(user_id, product_id, order_item_id,\nrating, comment, is_approved=0)
+  DB --> PC : review_id
+  PC -> DB : UPDATE products SET\navg_rating = (SELECT AVG(rating)\nFROM reviews WHERE product_id=?\nAND is_approved=1)
+  PC --> FE : 201 { message: "Đánh giá đang chờ duyệt" }
+  FE --> U : ✅ "Cảm ơn đánh giá của bạn!"
+else Chưa mua hoặc chưa nhận
+  PC --> FE : 403 { message: "Chỉ khách đã mua mới đánh giá được" }
+  FE --> U : ❌ Thông báo lỗi
+end
+deactivate PC
+deactivate FE
+
+@enduml

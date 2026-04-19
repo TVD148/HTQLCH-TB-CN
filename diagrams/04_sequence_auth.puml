@@ -1,0 +1,107 @@
+@startuml 04_sequence_auth
+!theme cerulean-outline
+title Sơ đồ Tuần tự - Xác thực người dùng (JWT)\nĐăng ký & Đăng nhập
+
+skinparam sequenceArrowThickness 2
+skinparam roundcorner 10
+skinparam sequenceParticipant underline
+
+actor "Người dùng" as U #LightGreen
+participant "React\nFrontend" as FE #LightBlue
+participant "Auth\nController" as AUTH #LightYellow
+participant "JWT\nMiddleware" as JWT #Orange
+participant "MySQL\nDatabase" as DB #LightCoral
+
+== ĐĂNG KÝ TÀI KHOẢN ==
+U -> FE : Nhập name, email, password
+activate FE
+FE -> FE : Validate form (client-side)
+FE -> AUTH : POST /api/auth/register\n{name, email, password}
+activate AUTH
+
+AUTH -> DB : SELECT * FROM users\nWHERE email = ?
+activate DB
+DB --> AUTH : Result
+deactivate DB
+
+alt Email đã tồn tại
+  AUTH --> FE : 409 { message: "Email already exists" }
+  FE --> U : Hiển thị lỗi "Email đã tồn tại"
+else Email hợp lệ
+  AUTH -> AUTH : Validate schema (Joi)
+  AUTH -> AUTH : bcrypt.hash(password, 10)
+  AUTH -> DB : INSERT INTO users\n(name, email, password_hash, role='user')
+  activate DB
+  DB --> AUTH : { insertId: userId }
+  deactivate DB
+  AUTH -> JWT : jwt.sign({id, role}, SECRET\n{expiresIn: '7d'})
+  activate JWT
+  JWT --> AUTH : accessToken
+  deactivate JWT
+  AUTH -> DB : INSERT INTO notifications\n(userId, "Welcome to TechStore!")
+  AUTH --> FE : 201 { token, user:{id,name,email,role} }
+  FE -> FE : localStorage.setItem\n('token', accessToken)
+  FE -> FE : AuthContext.setUser(user)
+  FE --> U : Redirect → Trang chủ\n"Đăng ký thành công! 🎉"
+end
+deactivate AUTH
+deactivate FE
+
+== ĐĂNG NHẬP ==
+U -> FE : Nhập email + password
+activate FE
+FE -> AUTH : POST /api/auth/login\n{email, password}
+activate AUTH
+
+AUTH -> DB : SELECT * FROM users\nWHERE email = ? AND is_active = 1
+activate DB
+DB --> AUTH : User record (hoặc null)
+deactivate DB
+
+alt Không tìm thấy user
+  AUTH --> FE : 401 { message: "Invalid credentials" }
+  FE --> U : "Email hoặc mật khẩu không đúng"
+else User tồn tại
+  AUTH -> AUTH : bcrypt.compare\n(password, user.password_hash)
+  alt Sai mật khẩu
+    AUTH --> FE : 401 { message: "Invalid credentials" }
+    FE --> U : "Email hoặc mật khẩu không đúng"
+  else Mật khẩu đúng
+    AUTH -> JWT : jwt.sign\n({id, role, email}, SECRET, {expiresIn:'7d'})
+    activate JWT
+    JWT --> AUTH : accessToken
+    deactivate JWT
+    AUTH -> DB : UPDATE users SET last_login=NOW()
+    AUTH --> FE : 200 { token, user }
+    FE -> FE : localStorage.setItem('token', token)
+    FE -> FE : AuthContext.login(user)
+    FE --> U : Redirect theo role:\n• admin/staff → /admin/dashboard\n• user → /
+  end
+end
+deactivate AUTH
+deactivate FE
+
+== KIỂM TRA TOKEN (Protected Route) ==
+U -> FE : Truy cập /profile hoặc /cart
+activate FE
+FE -> FE : Đọc token từ localStorage
+FE -> JWT : GET /api/auth/me\nAuthorization: Bearer <token>
+activate JWT
+JWT -> JWT : jwt.verify(token, SECRET)
+
+alt Token hợp lệ
+  JWT -> DB : SELECT * FROM users WHERE id = ?
+  activate DB
+  DB --> JWT : User data
+  deactivate DB
+  JWT --> FE : 200 { user }
+  FE --> U : Hiển thị trang
+else Token hết hạn / không hợp lệ
+  JWT --> FE : 401 { message: "Token expired" }
+  FE -> FE : localStorage.removeItem('token')
+  FE --> U : Redirect → /login
+end
+deactivate JWT
+deactivate FE
+
+@enduml

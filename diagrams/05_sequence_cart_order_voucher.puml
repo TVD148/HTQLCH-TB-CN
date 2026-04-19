@@ -1,0 +1,149 @@
+@startuml 05_sequence_muahang_voucher
+!theme cerulean-outline
+title Sơ đồ Tuần tự - Giỏ hàng, Voucher & Đặt hàng
+
+skinparam sequenceArrowThickness 2
+skinparam roundcorner 10
+
+actor "Khách hàng" as KH #LightGreen
+participant "React\nFrontend" as FE #LightBlue
+participant "Cart\nController" as CART #LightYellow
+participant "Order\nController" as ORDER #LightYellow
+participant "Voucher\nService" as VS #Orange
+participant "Inventory\nService" as INV #Pink
+participant "Loyalty\nService" as LOYAL #Violet
+participant "MySQL DB" as DB #LightCoral
+
+== THÊM VÀO GIỎ HÀNG ==
+KH -> FE : Click "Thêm vào giỏ"
+activate FE
+FE -> CART : POST /api/cart/add\n{productId, quantity}\n[JWT Bearer]
+activate CART
+CART -> DB : SELECT stock_quantity\nFROM products WHERE id=?
+activate DB
+DB --> CART : stock_quantity
+deactivate DB
+
+alt Đủ hàng trong kho
+  CART -> DB : INSERT/UPDATE cart_items\n(cart_id, product_id, quantity, unit_price)
+  DB --> CART : Updated
+  CART -> DB : SELECT COUNT(*) FROM cart_items WHERE cart_id=?
+  DB --> CART : cart_count
+  CART --> FE : 200 { cart_count, message: "Đã thêm vào giỏ" }
+  FE --> KH : 🛒 Badge cập nhật số lượng
+else Hết hàng
+  CART --> FE : 400 { message: "Sản phẩm đã hết hàng" }
+  FE --> KH : Toast "Sản phẩm đã hết hàng"
+end
+deactivate CART
+deactivate FE
+
+== ÁP DỤNG MÃ VOUCHER ==
+KH -> FE : Nhập mã voucher và click "Áp dụng"
+activate FE
+FE -> CART : POST /api/cart/apply-voucher\n{code, cart_total}\n[JWT Bearer]
+activate CART
+CART -> VS : validateVoucher(code, userId, cartTotal)
+activate VS
+
+VS -> DB : SELECT * FROM vouchers\nWHERE code=? AND is_active=1
+activate DB
+DB --> VS : Voucher record
+deactivate DB
+
+alt Voucher không tồn tại
+  VS --> CART : { valid: false, msg: "Mã không hợp lệ" }
+  CART --> FE : 400 { message: "Mã không hợp lệ" }
+  FE --> KH : ❌ "Mã voucher không hợp lệ"
+
+else Voucher hết hạn
+  VS --> CART : { valid: false, msg: "Mã đã hết hạn" }
+  CART --> FE : 400 { message: "Mã đã hết hạn" }
+  FE --> KH : ❌ "Mã voucher đã hết hạn"
+
+else Used_count >= max_uses
+  VS --> CART : { valid: false, msg: "Mã đã hết lượt dùng" }
+  CART --> FE : 400 ...
+  FE --> KH : ❌ "Mã đã đủ số lượt sử dụng"
+
+else CartTotal < min_order_value
+  VS --> CART : { valid: false, msg: "Đơn chưa đủ điều kiện" }
+  CART --> FE : 400 { min_order_value: X }
+  FE --> KH : ❌ "Đơn tối thiểu [X]đ mới áp dụng"
+
+else Voucher hợp lệ
+  VS -> DB : SELECT * FROM voucher_usages\nWHERE voucher_id=? AND user_id=?
+  DB --> VS : usage_count
+  alt Đã dùng quá max_uses_per_user
+    VS --> CART : { valid: false, msg: "Bạn đã dùng mã này" }
+    CART --> FE : 400 ...
+    FE --> KH : ❌ "Bạn đã sử dụng mã này rồi"
+  else Hợp lệ hoàn toàn
+    VS -> VS : calculateDiscount(voucher, cartTotal)
+    VS --> CART : { valid: true, discount: X, final_total: Y }
+    deactivate VS
+    CART --> FE : 200 { discount_amount, final_total }
+    FE --> KH : ✅ "Giảm [X]đ! Tổng còn [Y]đ"
+  end
+end
+deactivate CART
+deactivate FE
+
+== ĐẶT HÀNG ==
+KH -> FE : Xác nhận đặt hàng
+activate FE
+FE -> ORDER : POST /api/orders\n{shippingAddress, paymentMethod\nvoucherId, loyaltyPointsUsed}\n[JWT Bearer]
+activate ORDER
+
+ORDER -> DB : BEGIN TRANSACTION
+
+loop Mỗi sản phẩm trong giỏ
+  ORDER -> INV : checkStock(productId, quantity)
+  activate INV
+  INV -> DB : SELECT stock_quantity\nFROM products WHERE id=?
+  DB --> INV : stock
+  alt Hết hàng
+    INV --> ORDER : InsufficientStockError
+    ORDER -> DB : ROLLBACK
+    ORDER --> FE : 400 { message: "Hết hàng: [tên SP]" }
+    FE --> KH : ❌ Thông báo hết hàng
+  else Đủ hàng
+    INV --> ORDER : OK
+  end
+  deactivate INV
+end
+
+ORDER -> ORDER : generateOrderCode() // ORD-YYYYMMDD-XXXX
+ORDER -> DB : INSERT INTO orders\n(user_id, order_code, subtotal,\ndiscount_amount, total_amount,\nstatus='pending', payment_method,\nshipping_address, ...)
+DB --> ORDER : order_id
+
+ORDER -> DB : INSERT INTO order_items (bulk)\n[(order_id, product_id, qty, price)]
+
+ORDER -> DB : UPDATE products SET stock_quantity\n= stock_quantity - qty\n(foreach item)
+
+ORDER -> DB : INSERT INTO inventory_logs\n(type='export', foreach item)
+
+alt Có voucher
+  ORDER -> DB : UPDATE vouchers SET\nused_count = used_count + 1\nWHERE id = voucher_id
+  ORDER -> DB : INSERT INTO voucher_usages\n(voucher_id, user_id, order_id, discount_applied)
+end
+
+ORDER -> DB : DELETE FROM cart_items\nWHERE cart_id = (user's cart)
+
+ORDER -> LOYAL : earnPoints(userId, totalAmount)
+activate LOYAL
+LOYAL -> DB : UPDATE users SET\nloyalty_points = loyalty_points + earned
+LOYAL --> ORDER : points_earned
+deactivate LOYAL
+
+ORDER -> DB : COMMIT
+DB --> ORDER : Success
+
+ORDER -> DB : INSERT INTO notifications\n(user_id, 'Đơn hàng #code đã được tạo')
+ORDER --> FE : 201 {\n  order: { id, order_code, total },\n  loyalty_points_earned\n}
+FE --> KH : 🎉 Trang xác nhận đơn hàng\n"Đặt hàng thành công! #ORD-..."
+
+deactivate ORDER
+deactivate FE
+
+@enduml

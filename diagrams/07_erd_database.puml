@@ -1,0 +1,288 @@
+@startuml 07_erd_database
+!theme cerulean-outline
+title Sơ đồ Cơ sở Dữ liệu (ERD)\nHệ thống Quản lý Cửa hàng Thiết bị Công nghệ
+
+skinparam linetype ortho
+skinparam entity {
+  BackgroundColor #EBF5FB
+  BorderColor #2471A3
+  HeaderBackgroundColor #1A5276
+  HeaderFontColor white
+}
+
+'============ USERS ============
+entity "USERS" as USERS {
+  *id : INT <<PK, AUTO_INCREMENT>>
+  --
+  *name : VARCHAR(100)
+  *email : VARCHAR(150) <<UNIQUE>>
+  *password_hash : VARCHAR(255)
+  *role : ENUM('admin','staff','user') DEFAULT 'user'
+  phone : VARCHAR(20)
+  address : TEXT
+  *loyalty_points : INT DEFAULT 0
+  *is_active : TINYINT(1) DEFAULT 1
+  avatar_url : VARCHAR(255)
+  email_verified_at : TIMESTAMP
+  *created_at : TIMESTAMP DEFAULT NOW()
+  *updated_at : TIMESTAMP DEFAULT NOW()
+}
+
+'============ CATEGORIES ============
+entity "CATEGORIES" as CATS {
+  *id : INT <<PK>>
+  --
+  *name : VARCHAR(100)
+  *slug : VARCHAR(120) <<UNIQUE>>
+  description : TEXT
+  image_url : VARCHAR(255)
+  parent_id : INT <<FK, NULL>>
+  *is_active : TINYINT(1) DEFAULT 1
+  sort_order : INT DEFAULT 0
+  *created_at : TIMESTAMP
+}
+
+'============ BRANDS ============
+entity "BRANDS" as BRANDS {
+  *id : INT <<PK>>
+  --
+  *name : VARCHAR(100) <<UNIQUE>>
+  slug : VARCHAR(120)
+  logo_url : VARCHAR(255)
+  country : VARCHAR(50)
+  *is_active : TINYINT(1) DEFAULT 1
+}
+
+'============ PRODUCTS ============
+entity "PRODUCTS" as PRODS {
+  *id : INT <<PK>>
+  --
+  *name : VARCHAR(200)
+  *slug : VARCHAR(220) <<UNIQUE>>
+  description : TEXT
+  short_desc : TEXT
+  *price : DECIMAL(15,2)
+  sale_price : DECIMAL(15,2)
+  *stock_quantity : INT DEFAULT 0
+  min_stock_alert : INT DEFAULT 5
+  *category_id : INT <<FK>>
+  *brand_id : INT <<FK>>
+  thumbnail : VARCHAR(255)
+  *is_active : TINYINT(1) DEFAULT 1
+  *is_featured : TINYINT(1) DEFAULT 0
+  view_count : INT DEFAULT 0
+  avg_rating : DECIMAL(3,2) DEFAULT 0
+  *created_at : TIMESTAMP
+  *updated_at : TIMESTAMP
+}
+
+'============ PRODUCT_SPECS ============
+entity "PRODUCT_SPECS" as SPECS {
+  *id : INT <<PK>>
+  --
+  *product_id : INT <<FK>>
+  *spec_name : VARCHAR(100)
+  *spec_value : VARCHAR(255)
+  unit : VARCHAR(50)
+  sort_order : INT DEFAULT 0
+}
+
+'============ PRODUCT_IMAGES ============
+entity "PRODUCT_IMAGES" as IMGS {
+  *id : INT <<PK>>
+  --
+  *product_id : INT <<FK>>
+  *image_url : VARCHAR(255)
+  *is_primary : TINYINT(1) DEFAULT 0
+  sort_order : INT DEFAULT 0
+}
+
+'============ CARTS ============
+entity "CARTS" as CARTS {
+  *id : INT <<PK>>
+  --
+  *user_id : INT <<FK, UNIQUE>>
+  *created_at : TIMESTAMP
+  *updated_at : TIMESTAMP
+}
+
+'============ CART_ITEMS ============
+entity "CART_ITEMS" as CITEMS {
+  *id : INT <<PK>>
+  --
+  *cart_id : INT <<FK>>
+  *product_id : INT <<FK>>
+  *quantity : INT
+  *unit_price : DECIMAL(15,2)
+  *added_at : TIMESTAMP DEFAULT NOW()
+  <<UNIQUE (cart_id, product_id)>>
+}
+
+'============ VOUCHERS ============
+entity "VOUCHERS" as VCHS {
+  *id : INT <<PK>>
+  --
+  *code : VARCHAR(50) <<UNIQUE>>
+  *name : VARCHAR(150)
+  description : TEXT
+  *discount_type : ENUM('percent','fixed_amount')
+  *discount_value : DECIMAL(15,2)
+  max_discount_amount : DECIMAL(15,2)
+  min_order_value : DECIMAL(15,2) DEFAULT 0
+  *max_uses : INT DEFAULT 1
+  *used_count : INT DEFAULT 0
+  max_uses_per_user : INT DEFAULT 1
+  *is_active : TINYINT(1) DEFAULT 1
+  *start_date : TIMESTAMP
+  *expired_at : TIMESTAMP
+  *created_at : TIMESTAMP
+}
+
+'============ VOUCHER_USAGES ============
+entity "VOUCHER_USAGES" as VUSAGES {
+  *id : INT <<PK>>
+  --
+  *voucher_id : INT <<FK>>
+  *user_id : INT <<FK>>
+  *order_id : INT <<FK>>
+  *discount_applied : DECIMAL(15,2)
+  *used_at : TIMESTAMP DEFAULT NOW()
+}
+
+'============ ORDERS ============
+entity "ORDERS" as ORDERS {
+  *id : INT <<PK>>
+  --
+  *user_id : INT <<FK>>
+  *order_code : VARCHAR(50) <<UNIQUE>>
+  *subtotal : DECIMAL(15,2)
+  discount_amount : DECIMAL(15,2) DEFAULT 0
+  shipping_fee : DECIMAL(15,2) DEFAULT 0
+  *total_amount : DECIMAL(15,2)
+  voucher_id : INT <<FK, NULL>>
+  loyalty_points_used : INT DEFAULT 0
+  loyalty_points_earned : INT DEFAULT 0
+  *status : ENUM('pending','confirmed','shipping','delivered','cancelled','refunded')
+  *payment_method : ENUM('cod','bank_transfer','momo','loyalty_points')
+  *payment_status : ENUM('unpaid','paid','refunded') DEFAULT 'unpaid'
+  *receiver_name : VARCHAR(100)
+  *receiver_phone : VARCHAR(20)
+  *shipping_address : TEXT
+  note : TEXT
+  *created_at : TIMESTAMP
+  *updated_at : TIMESTAMP
+}
+
+'============ ORDER_ITEMS ============
+entity "ORDER_ITEMS" as OITEMS {
+  *id : INT <<PK>>
+  --
+  *order_id : INT <<FK>>
+  *product_id : INT <<FK>>
+  *product_name : VARCHAR(200)
+  *product_thumbnail : VARCHAR(255)
+  *unit_price : DECIMAL(15,2)
+  *quantity : INT
+  *subtotal : DECIMAL(15,2)
+}
+
+'============ REVIEWS ============
+entity "REVIEWS" as REVIEWS {
+  *id : INT <<PK>>
+  --
+  *user_id : INT <<FK>>
+  *product_id : INT <<FK>>
+  order_item_id : INT <<FK, NULL>>
+  *rating : TINYINT(1) CHECK(1-5)
+  comment : TEXT
+  *is_approved : TINYINT(1) DEFAULT 0
+  *created_at : TIMESTAMP
+}
+
+'============ WISHLISTS ============
+entity "WISHLISTS" as WISH {
+  *id : INT <<PK>>
+  --
+  *user_id : INT <<FK>>
+  *product_id : INT <<FK>>
+  *created_at : TIMESTAMP
+  <<UNIQUE (user_id, product_id)>>
+}
+
+'============ WARRANTY_REQUESTS ============
+entity "WARRANTY_REQUESTS" as WRQ {
+  *id : INT <<PK>>
+  --
+  *user_id : INT <<FK>>
+  *order_item_id : INT <<FK>>
+  serial_number : VARCHAR(100)
+  *issue_description : TEXT
+  *status : ENUM('pending','processing','completed','rejected')
+  assigned_staff_id : INT <<FK, NULL>>
+  resolution_note : TEXT
+  *received_at : TIMESTAMP DEFAULT NOW()
+  completed_at : TIMESTAMP
+}
+
+'============ INVENTORY_LOGS ============
+entity "INVENTORY_LOGS" as INVLOGS {
+  *id : INT <<PK>>
+  --
+  *product_id : INT <<FK>>
+  user_id : INT <<FK>>
+  *quantity_change : INT
+  *stock_before : INT
+  *stock_after : INT
+  *type : ENUM('import','export','adjustment','return')
+  note : TEXT
+  reference_code : VARCHAR(100)
+  *created_at : TIMESTAMP DEFAULT NOW()
+}
+
+'============ NOTIFICATIONS ============
+entity "NOTIFICATIONS" as NOTIFS {
+  *id : INT <<PK>>
+  --
+  *user_id : INT <<FK>>
+  *title : VARCHAR(200)
+  *content : TEXT
+  type : VARCHAR(50)
+  *is_read : TINYINT(1) DEFAULT 0
+  ref_id : VARCHAR(50)
+  *created_at : TIMESTAMP DEFAULT NOW()
+}
+
+'============ RELATIONSHIPS ============
+USERS ||--o{ ORDERS : "places (user_id)"
+USERS ||--|| CARTS : "has (user_id)"
+USERS ||--o{ REVIEWS : "writes (user_id)"
+USERS ||--o{ WISHLISTS : "saves (user_id)"
+USERS ||--o{ WARRANTY_REQUESTS : "requests (user_id)"
+USERS ||--o{ NOTIFICATIONS : "receives (user_id)"
+USERS ||--o{ VOUCHER_USAGES : "uses (user_id)"
+USERS ||--o{ INVENTORY_LOGS : "records (user_id)"
+
+CATS ||--o{ CATS : "parent_id (self)"
+CATS ||--o{ PRODS : "belongs (category_id)"
+BRANDS ||--o{ PRODS : "made_by (brand_id)"
+
+PRODS ||--|{ SPECS : "has (product_id)"
+PRODS ||--|{ IMGS : "has (product_id)"
+PRODS ||--o{ CITEMS : "in cart (product_id)"
+PRODS ||--o{ OITEMS : "in order (product_id)"
+PRODS ||--o{ REVIEWS : "rated (product_id)"
+PRODS ||--o{ WISHLISTS : "saved (product_id)"
+PRODS ||--o{ INVLOGS : "tracked (product_id)"
+
+CARTS ||--o{ CITEMS : "contains (cart_id)"
+
+VCHS ||--o{ VUSAGES : "used in (voucher_id)"
+VCHS ||--o{ ORDERS : "applied to (voucher_id)"
+
+ORDERS ||--|{ OITEMS : "contains (order_id)"
+ORDERS ||--o{ VUSAGES : "has usage (order_id)"
+
+OITEMS ||--o{ REVIEWS : "reviewed (order_item_id)"
+OITEMS ||--o| WRQ : "warranty (order_item_id)"
+
+@enduml

@@ -1,0 +1,131 @@
+@startuml 06_sequence_admin
+!theme cerulean-outline
+title Sơ đồ Tuần tự - Quản lý Admin\n(Sản phẩm, Đơn hàng, Báo cáo, Bảo hành)
+
+skinparam sequenceArrowThickness 2
+skinparam roundcorner 10
+
+actor "Admin" as ADMIN #LightCoral
+actor "Nhân viên" as NV #LightYellow
+participant "React Admin\nDashboard" as FE #LightBlue
+participant "Admin\nController" as AC #Orange
+participant "Auth\nMiddleware" as AUTH #Gray
+participant "MySQL DB" as DB #LightCoral
+
+== THÊM SẢN PHẨM MỚI ==
+ADMIN -> FE : Điền form thêm sản phẩm\n(tên, giá, danh mục, thông số kỹ thuật, ảnh)
+activate FE
+FE -> AUTH : POST /api/admin/products\n[JWT Bearer]
+activate AUTH
+AUTH -> AUTH : verifyToken()\ncheckRole(['admin'])
+AUTH -> AC : Chuyển tiếp request
+deactivate AUTH
+activate AC
+AC -> DB : INSERT INTO products\n(name, slug, price, sale_price,\nstock_quantity, category_id, brand_id...)
+activate DB
+DB --> AC : product_id
+deactivate DB
+AC -> DB : INSERT INTO product_specs (bulk)\n[(product_id, spec_name, spec_value)]
+AC -> DB : INSERT INTO product_images (bulk)\n[(product_id, image_url, is_primary)]
+AC -> DB : INSERT INTO inventory_logs\n(product_id, qty, type='import',\nstock_after=initial_stock)
+AC --> FE : 201 { product, message: "Tạo sản phẩm thành công" }
+FE --> ADMIN : ✅ Cập nhật danh sách sản phẩm
+deactivate AC
+deactivate FE
+
+== CẬP NHẬT TRẠNG THÁI ĐƠN HÀNG ==
+NV -> FE : Chọn đơn hàng → Cập nhật trạng thái
+activate FE
+FE -> AUTH : PATCH /api/admin/orders/:id/status\n{status: "confirmed"}\n[JWT Bearer]
+activate AUTH
+AUTH -> AUTH : checkRole(['admin','staff'])
+AUTH -> AC : Forward
+deactivate AUTH
+activate AC
+AC -> DB : SELECT * FROM orders WHERE id=?
+activate DB
+DB --> AC : Order record
+deactivate DB
+
+AC -> AC : validateStatusTransition\n(current → new)
+
+alt Chuyển trạng thái hợp lệ
+  AC -> DB : UPDATE orders SET status=?,\nupdated_at=NOW() WHERE id=?
+  AC -> DB : INSERT INTO notifications\n(user_id, 'Đơn hàng của bạn đã [status]')
+  AC --> FE : 200 { order }
+  FE --> NV : ✅ Trạng thái đã cập nhật
+else Không hợp lệ (vd: từ delivered → pending)
+  AC --> FE : 400 { message: "Không thể chuyển trạng thái này" }
+  FE --> NV : ❌ Hiển thị lỗi
+end
+deactivate AC
+deactivate FE
+
+== QUẢN LÝ VOUCHER ==
+ADMIN -> FE : Tạo Voucher mới
+activate FE
+FE -> AUTH : POST /api/admin/vouchers\n{code, discount_type, discount_value,\nmin_order_value, max_uses, expired_at}\n[JWT Bearer]
+activate AUTH
+AUTH -> AUTH : checkRole(['admin'])
+AUTH -> AC : Forward
+deactivate AUTH
+activate AC
+AC -> DB : SELECT * FROM vouchers WHERE code=?
+activate DB
+DB --> AC : Kiểm tra trùng code
+deactivate DB
+alt Code đã tồn tại
+  AC --> FE : 409 { message: "Mã đã tồn tại" }
+  FE --> ADMIN : ❌ Lỗi trùng mã
+else Code mới
+  AC -> DB : INSERT INTO vouchers (code, discount_type,\ndiscount_value, min_order_value,\nmax_uses, is_active=1, expired_at)
+  DB --> AC : voucher_id
+  AC --> FE : 201 { voucher }
+  FE --> ADMIN : ✅ Voucher đã tạo thành công
+end
+deactivate AC
+deactivate FE
+
+== XEM BÁO CÁO DOANH THU ==
+ADMIN -> FE : Chọn khoảng thời gian báo cáo
+activate FE
+FE -> AUTH : GET /api/admin/reports/revenue\n?from=2026-04-01&to=2026-04-30\n[JWT Bearer]
+activate AUTH
+AUTH -> AUTH : checkRole(['admin'])
+AUTH -> AC : Forward
+deactivate AUTH
+activate AC
+AC -> DB : SELECT DATE(created_at) as date,\nCOUNT(*) as order_count,\nSUM(total_amount) as revenue\nFROM orders\nWHERE status='delivered'\nAND created_at BETWEEN ? AND ?\nGROUP BY DATE(created_at)
+activate DB
+DB --> AC : Revenue data array
+deactivate DB
+AC -> DB : SELECT p.name, SUM(oi.quantity) as sold,\nSUM(oi.subtotal) as revenue\nFROM order_items oi\nJOIN products p ON p.id=oi.product_id\nGROUP BY p.id\nORDER BY sold DESC LIMIT 10
+DB --> AC : Top 10 sản phẩm bán chạy
+AC -> DB : SELECT SUM(stock_quantity * price)\nFROM products WHERE is_active=1
+DB --> AC : Inventory value
+AC --> FE : 200 {\n  revenue_chart: [...],\n  total_revenue: X,\n  total_orders: Y,\n  top_products: [...],\n  inventory_value: Z\n}
+FE --> ADMIN : 📊 Hiển thị biểu đồ doanh thu\nvà thống kê tổng quan
+deactivate AC
+deactivate FE
+
+== TIẾP NHẬN BẢO HÀNH ==
+NV -> FE : Tạo phiếu bảo hành
+activate FE
+FE -> AUTH : POST /api/admin/warranty\n{orderItemId, serialNumber,\nissueDescription}\n[JWT Bearer]
+activate AUTH
+AUTH -> AUTH : checkRole(['admin','staff'])
+AUTH -> AC : Forward
+deactivate AUTH
+activate AC
+AC -> DB : SELECT oi.*, o.user_id, o.created_at\nFROM order_items oi\nJOIN orders o ON o.id=oi.order_id\nWHERE oi.id=?
+DB --> AC : Order item data
+AC -> AC : Kiểm tra còn trong thời hạn BH
+AC -> DB : INSERT INTO warranty_requests\n(user_id, order_item_id,\nserial_number, issue_description,\nstatus='pending')
+DB --> AC : warranty_id
+AC -> DB : INSERT INTO notifications\n(user_id, 'Phiếu bảo hành #ID đã tiếp nhận')
+AC --> FE : 201 { warrantyRequest }
+FE --> NV : ✅ Phiếu bảo hành đã tạo
+deactivate AC
+deactivate FE
+
+@enduml

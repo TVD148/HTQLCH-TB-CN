@@ -1,0 +1,137 @@
+@startuml UC01_TongQuat_HeThong
+!theme cerulean-outline
+title Sơ đồ Use Case Tổng quát\nHệ thống Quản lý Cửa hàng Thiết bị Công nghệ (HTTT01)
+
+skinparam ActorStyle awesome
+skinparam usecase {
+  BackgroundColor LightBlue
+  BorderColor DarkBlue
+  ArrowColor Navy
+}
+skinparam actor {
+  BackgroundColor LightYellow
+  BorderColor DarkOrange
+}
+
+'===== ACTORS =====
+actor "Khách vãng lai" as KVL #LightGray
+actor "Khách hàng\n(User)" as KH #LightGreen
+actor "Nhân viên\nBán hàng" as NV #LightYellow
+actor "Quản trị viên\n(Admin)" as ADMIN #LightCoral
+
+'===== USE CASES =====
+rectangle "<<Hệ thống Quản lý Cửa hàng TBCN>>" {
+
+  package "Duyệt & Tìm kiếm" {
+    usecase "Xem trang chủ" as UC_HOME
+    usecase "Xem danh sách\nsản phẩm" as UC_LIST
+    usecase "Tìm kiếm sản phẩm" as UC_SEARCH
+    usecase "Lọc sản phẩm\n(giá, danh mục, hãng)" as UC_FILTER
+    usecase "Xem chi tiết\nsản phẩm" as UC_DETAIL
+    usecase "So sánh\nsản phẩm" as UC_COMPARE
+  }
+
+  package "Xác thực người dùng" {
+    usecase "Đăng ký\ntài khoản" as UC_REGISTER
+    usecase "Đăng nhập\n(JWT)" as UC_LOGIN
+    usecase "Đăng xuất" as UC_LOGOUT
+    usecase "Quản lý\nhồ sơ cá nhân" as UC_PROFILE
+    usecase "Đổi mật khẩu" as UC_CHANGEPW
+  }
+
+  package "Mua hàng" {
+    usecase "Quản lý\ngiỏ hàng" as UC_CART
+    usecase "Áp dụng\nVoucher/Mã giảm giá" as UC_VOUCHER
+    usecase "Đặt hàng &\nThành toán" as UC_ORDER
+    usecase "Theo dõi\nđơn hàng" as UC_TRACKORDER
+    usecase "Hủy đơn hàng" as UC_CANCEL
+    usecase "Đánh giá\nsản phẩm" as UC_REVIEW
+    usecase "Yêu cầu\nbảo hành" as UC_WARRANTY
+    usecase "Chương trình\ntích điểm" as UC_LOYALTY
+    usecase "Thêm vào\nyêu thích" as UC_WISHLIST
+  }
+
+  package "Quản lý Admin" {
+    usecase "Quản lý\nSản phẩm (CRUD)" as UC_MGPROD
+    usecase "Quản lý\nDanh mục" as UC_MGCAT
+    usecase "Quản lý\nĐơn hàng" as UC_MGORDER
+    usecase "Quản lý\nNgười dùng" as UC_MGUSER
+    usecase "Quản lý\nVoucher/Khuyến mãi" as UC_MGVOUCHER
+    usecase "Quản lý\nBảo hành" as UC_MGWARRANTY
+    usecase "Quản lý\nKho hàng" as UC_MGINVENTORY
+    usecase "Báo cáo\nDoanh thu" as UC_REPORT_REV
+    usecase "Thống kê\nTồn kho" as UC_REPORT_INV
+    usecase "Báo cáo\nKhách hàng" as UC_REPORT_CUS
+  }
+
+  package "Nhân viên" {
+    usecase "Xử lý & Cập nhật\ntrạng thái đơn" as UC_PROCESS_ORDER
+    usecase "Tiếp nhận\nbảo hành" as UC_RECV_WARRANTY
+    usecase "Kiểm tra\ntồn kho" as UC_CHECK_INV
+  }
+}
+
+'===== RELATIONSHIPS =====
+KVL --> UC_HOME
+KVL --> UC_LIST
+KVL --> UC_SEARCH
+KVL --> UC_FILTER
+KVL --> UC_DETAIL
+KVL --> UC_COMPARE
+KVL --> UC_REGISTER
+
+KH --> UC_LOGIN
+KH --> UC_LOGOUT
+KH --> UC_PROFILE
+KH --> UC_CHANGEPW
+KH --> UC_CART
+KH --> UC_VOUCHER
+KH --> UC_ORDER
+KH --> UC_TRACKORDER
+KH --> UC_CANCEL
+KH --> UC_REVIEW
+KH --> UC_WARRANTY
+KH --> UC_LOYALTY
+KH --> UC_WISHLIST
+KH --> UC_HOME
+KH --> UC_LIST
+KH --> UC_SEARCH
+KH --> UC_DETAIL
+KH --> UC_COMPARE
+
+NV --> UC_LOGIN
+NV --> UC_PROCESS_ORDER
+NV --> UC_RECV_WARRANTY
+NV --> UC_CHECK_INV
+
+ADMIN --> UC_LOGIN
+ADMIN --> UC_MGPROD
+ADMIN --> UC_MGCAT
+ADMIN --> UC_MGORDER
+ADMIN --> UC_MGUSER
+ADMIN --> UC_MGVOUCHER
+ADMIN --> UC_MGWARRANTY
+ADMIN --> UC_MGINVENTORY
+ADMIN --> UC_REPORT_REV
+ADMIN --> UC_REPORT_INV
+ADMIN --> UC_REPORT_CUS
+ADMIN --> UC_PROCESS_ORDER
+
+'===== INCLUDE/EXTEND =====
+UC_ORDER .> UC_VOUCHER : <<include>>
+UC_ORDER .> UC_CART : <<include>>
+UC_FILTER .> UC_SEARCH : <<extend>>
+UC_LOYALTY .> UC_ORDER : <<extend>>
+
+note right of UC_VOUCHER
+  Kiểm tra: mã hợp lệ,
+  chưa hết hạn, đủ điều kiện
+  giá trị đơn tối thiểu
+end note
+
+note right of UC_WARRANTY
+  Yêu cầu bảo hành theo
+  IMEI / Serial Number
+end note
+
+@enduml

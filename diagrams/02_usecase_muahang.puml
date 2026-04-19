@@ -1,0 +1,74 @@
+@startuml UC02_MuaHang_Voucher
+!theme cerulean-outline
+title Sơ đồ Use Case Chi tiết\nQuy trình Mua hàng & Áp dụng Voucher
+
+skinparam ActorStyle awesome
+skinparam usecase {
+  BackgroundColor #E8F4FD
+  BorderColor #2980B9
+}
+
+actor "Khách hàng" as KH #LightGreen
+actor "Hệ thống\nThanh toán" as PAY #LightBlue
+
+rectangle "Quy trình Mua hàng" {
+
+  usecase "Xem chi tiết\nsản phẩm" as UC1
+  usecase "Thêm vào\ngiỏ hàng" as UC2
+  usecase "Xem giỏ hàng" as UC3
+  usecase "Cập nhật số\nlượng SP" as UC4
+  usecase "Xóa SP\nkhỏi giỏ" as UC5
+  usecase "Nhập mã\nVoucher" as UC6
+  usecase "Kiểm tra\nhợp lệ Voucher" as UC7
+  usecase "Tính toán\ngiảm giá" as UC8
+  usecase "Chọn địa chỉ\ngiao hàng" as UC9
+  usecase "Chọn phương thức\nthanh toán" as UC10
+  usecase "Xác nhận\nđặt hàng" as UC11
+  usecase "Thanh toán\nCOD" as UC12
+  usecase "Thanh toán\nChuyển khoản" as UC13
+  usecase "Thanh toán\nMoMo (giả lập)" as UC14
+  usecase "Tạo đơn hàng\ntrong hệ thống" as UC15
+  usecase "Gửi email\nxác nhận" as UC16
+  usecase "Cập nhật\ntồn kho" as UC17
+  usecase "Tặng điểm\ntích lũy" as UC18
+  usecase "Sử dụng\nđiểm tích lũy" as UC_POINTS
+
+  UC3 .> UC4 : <<extend>>
+  UC3 .> UC5 : <<extend>>
+  UC3 .> UC6 : <<extend>>
+  UC6 .> UC7 : <<include>>
+  UC7 .> UC8 : <<include>>
+  UC11 .> UC9 : <<include>>
+  UC11 .> UC10 : <<include>>
+  UC10 .> UC12 : <<extend>>
+  UC10 .> UC13 : <<extend>>
+  UC10 .> UC14 : <<extend>>
+  UC11 .> UC15 : <<include>>
+  UC15 .> UC16 : <<include>>
+  UC15 .> UC17 : <<include>>
+  UC15 .> UC18 : <<include>>
+  UC6 .> UC_POINTS : <<extend>>
+}
+
+KH --> UC1
+KH --> UC2
+KH --> UC3
+KH --> UC11
+UC14 --> PAY
+
+note top of UC7
+  Kiểm tra:
+  - Mã tồn tại trong DB
+  - Chưa hết hạn (expired_at)
+  - Số lần sử dụng < max_uses
+  - Giá trị đơn >= min_order_value
+  - Chưa được KH này dùng
+end note
+
+note bottom of UC_POINTS
+  1 điểm = 1.000đ
+  Sử dụng điểm thay một phần
+  hoặc toàn bộ giá trị đơn
+end note
+
+@enduml
