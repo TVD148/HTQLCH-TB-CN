@@ -44,7 +44,11 @@ export const voucherApi = {
 
 export const wishlistApi = {
   getAll: ()          => api.get('/wishlist'),
-  toggle: (productId) => api.post(`/wishlist/toggle/${productId}`),
+  toggle: async (productId) => {
+    const res = await api.post(`/wishlist/toggle/${productId}`);
+    window.dispatchEvent(new Event('wishlistChanged'));
+    return res;
+  },
 };
 
 export const reviewApi = {

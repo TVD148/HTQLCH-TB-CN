@@ -23,10 +23,13 @@ export default function WishlistPage() {
   };
 
   if (!items.length) return (
-    <div className="section"><div className="container"><div className="empty-state">
-      <Heart size={48} style={{opacity:.3}}/>
-      <div className="empty-state__title">Danh sách yêu thích trống</div>
-      <Link to="/shop" className="btn btn-primary" style={{marginTop:16}}>Khám phá sản phẩm</Link>
+    <div className="section"><div className="container"><div className="empty-state" style={{textAlign: 'center', padding: '60px 0'}}>
+      <div className="empty-state-icon-large" style={{ color: 'var(--red)', background: 'var(--red-light)' }}>
+        <Heart size={56} strokeWidth={1.5} />
+      </div>
+      <h2 style={{fontSize: '1.5rem', fontWeight: 800, marginBottom: 8, color: 'var(--text-primary)'}}>Danh sách yêu thích trống</h2>
+      <p style={{fontSize: '0.95rem', color: 'var(--text-muted)', marginBottom: 24}}>Bạn chưa có món đồ công nghệ yêu thích nào. Hãy khám phá và lưu lại nhé!</p>
+      <Link to="/shop" className="btn btn-primary" style={{padding: '12px 32px', borderRadius: 40, fontSize: '1rem', boxShadow: 'var(--glow)'}}>Khám phá sản phẩm</Link>
     </div></div></div>
   );
 

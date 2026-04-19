@@ -72,7 +72,7 @@
   --surface-1:      #0F172A;
   --surface-2:      #1E293B;
   --surface-3:      #334155;
-  --header-bg:      rgba(15,23,42,0.95);
+  --header-bg:      rgba(15,23,42,0.65); /* Glassmorphism premium bg */
   --border:         rgba(148,163,184,0.15);
   --border-hover:   rgba(148,163,184,0.3);
 
@@ -80,7 +80,8 @@
   --shadow-sm:      0 1px 3px rgba(0,0,0,0.3);
   --shadow-md:      0 4px 20px rgba(0,0,0,0.4);
   --shadow-lg:      0 8px 40px rgba(0,0,0,0.5);
-  --glow:           0 0 30px rgba(59,130,246,0.2);
+  --glow:           0 0 30px rgba(59,130,246,0.25);
+  --glow-strong:    0 0 20px rgba(59,130,246,0.6);
 }
 
 /* ===============================================
@@ -242,8 +243,13 @@ ul, ol { list-style: none; }
 
 .product-card:hover {
   border-color: var(--accent);
-  box-shadow: var(--shadow-md), 0 0 0 1px var(--accent);
-  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg), 0 0 0 1px var(--accent);
+  transform: translateY(-5px);
+}
+
+[data-theme="dark"] .product-card:hover {
+  box-shadow: var(--glow-strong), 0 0 0 1px var(--accent);
+  border-color: var(--accent);
 }
 
 .product-card__img-wrap {

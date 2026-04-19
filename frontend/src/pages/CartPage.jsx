@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Trash2, Tag, X, ShoppingBag } from 'lucide-react';
 import { useCart } from '../context/CartContext';
@@ -25,11 +25,13 @@ export default function CartPage() {
   };
 
   if (!cart.items.length) return (
-    <div className="section"><div className="container"><div className="empty-state">
-      <div className="empty-state__icon"><ShoppingBag /></div>
-      <div className="empty-state__title">Giỏ hàng trống</div>
-      <div className="empty-state__desc">Hãy thêm sản phẩm vào giỏ hàng để tiếp tục</div>
-      <Link to="/shop" className="btn btn-primary" style={{marginTop:16}}>Mua sắm ngay</Link>
+    <div className="section"><div className="container"><div className="empty-state" style={{textAlign: 'center', padding: '60px 0'}}>
+      <div className="empty-state-icon-large">
+        <ShoppingBag size={56} strokeWidth={1.5} />
+      </div>
+      <h2 style={{fontSize: '1.5rem', fontWeight: 800, marginBottom: 8, color: 'var(--text-primary)'}}>Giỏ hàng trống!</h2>
+      <p style={{fontSize: '0.95rem', color: 'var(--text-muted)', marginBottom: 24}}>Giỏ hàng của bạn đang buồn vì trống rỗng, hãy thêm món đồ công nghệ nào đó đi!</p>
+      <Link to="/shop" className="btn btn-primary" style={{padding: '12px 32px', borderRadius: 40, fontSize: '1rem', boxShadow: 'var(--glow)'}}>Bắt đầu mua sắm</Link>
     </div></div></div>
   );
 

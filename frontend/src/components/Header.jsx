@@ -4,7 +4,7 @@ import { ShoppingCart, Heart, Bell, Search, Zap, User, LogOut, Package, Shield, 
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { useTheme } from '../context/ThemeContext';
-import { notificationApi } from '../api';
+import { notificationApi, wishlistApi } from '../api';
 
 export default function Header() {
   const { user, logout, isAdmin } = useAuth();
@@ -16,6 +16,10 @@ export default function Header() {
   const [notifCount, setNotifCount] = useState(0);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const menuRef = useRef(null);
+  
+  const [bounce, setBounce] = useState(false);
+  const [wishlistCount, setWishlistCount] = useState(0);
+  const initialMount = useRef(true);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10);
@@ -39,6 +43,29 @@ export default function Header() {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
+
+  useEffect(() => {
+    if (initialMount.current) { initialMount.current = false; return; }
+    if (cart.item_count > 0) {
+      setBounce(true);
+      const timer = setTimeout(() => setBounce(false), 400);
+      return () => clearTimeout(timer);
+    }
+  }, [cart.item_count]);
+
+  useEffect(() => {
+    if (user) {
+      wishlistApi.getAll().then(res => setWishlistCount(res.data.data.length)).catch(() => {});
+    } else {
+      setWishlistCount(0);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    const handler = () => { if (user) wishlistApi.getAll().then(res => setWishlistCount(res.data.data.length)).catch(() => {}); };
+    window.addEventListener('wishlistChanged', handler);
+    return () => window.removeEventListener('wishlistChanged', handler);
+  }, [user]);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -96,6 +123,7 @@ export default function Header() {
           {user && (
             <Link to="/wishlist" className="header__icon-btn" title="Yêu thích">
               <Heart size={18} />
+              {wishlistCount > 0 && <span className="header__badge">{wishlistCount}</span>}
             </Link>
           )}
 
@@ -108,7 +136,7 @@ export default function Header() {
           )}
 
           {/* Cart */}
-          <Link to="/cart" className="header__icon-btn" title="Giỏ hàng">
+          <Link to="/cart" className={`header__icon-btn ${bounce ? 'animate-cart-bounce' : ''}`} title="Giỏ hàng">
             <ShoppingCart size={18} />
             {cart.item_count > 0 && <span className="header__badge">{cart.item_count}</span>}
           </Link>

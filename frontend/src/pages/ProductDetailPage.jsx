@@ -121,25 +121,26 @@ export default function ProductDetailPage() {
           </div>
 
           {product.stock_quantity > 0 && (
-            <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:16}}>
-              <div className="qty-control">
-                <button className="qty-btn" onClick={() => qty > 1 && setQty(q => q-1)}>−</button>
-                <input className="qty-input" value={qty} readOnly />
-                <button className="qty-btn" onClick={() => qty < product.stock_quantity && setQty(q => q+1)}>+</button>
+            <div style={{display:'flex',alignItems:'center',gap:16,marginBottom:24}}>
+              <div className="qty-control" style={{ height: 54, padding: '0 8px', borderRadius: 'var(--radius-md)' }}>
+                <button className="qty-btn" style={{ width: 36, height: 36, fontSize: '1.2rem' }} onClick={() => qty > 1 && setQty(q => q-1)}>−</button>
+                <input className="qty-input" style={{ width: 44, fontSize: '1.1rem', fontWeight: 700 }} value={qty} readOnly />
+                <button className="qty-btn" style={{ width: 36, height: 36, fontSize: '1.2rem' }} onClick={() => qty < product.stock_quantity && setQty(q => q+1)}>+</button>
               </div>
-              <button className="btn btn-primary" style={{flex:1,height:46}} onClick={handleAddCart}>
-                <ShoppingCart size={17}/> Thêm vào giỏ hàng
+              <button className="btn btn-primary" style={{flex:1,height:54,fontSize:'1.05rem',borderRadius:'var(--radius-md)',boxShadow:'var(--glow)'}} onClick={handleAddCart}>
+                <ShoppingCart size={20}/> Thêm vào giỏ hàng
               </button>
             </div>
           )}
 
-          <div style={{display:'flex',gap:10,marginBottom:20}}>
-            <button className="btn btn-outline btn-sm" onClick={handleWishlist}
-              style={wishlisted?{borderColor:'var(--red)',color:'var(--red)'}:{}}>
-              <Heart size={14} fill={wishlisted?'currentColor':'none'}/> {wishlisted?'Đã thích':'Yêu thích'}
+          <div style={{display:'flex',gap:12,marginBottom:28}}>
+            <button className="btn btn-outline" style={{flex:1,height:46,fontSize:'0.95rem'}} onClick={handleWishlist}
+              style={{...(wishlisted?{borderColor:'var(--red)',color:'var(--red)'}:{}), flex:1, height:46, fontSize:'0.95rem'}}>
+              <Heart size={16} fill={wishlisted?'currentColor':'none'}/> {wishlisted?'Đã thích':'Yêu thích'}
             </button>
             <button
-              className={`btn btn-sm ${isInCompare(product.id) ? 'btn-primary' : 'btn-ghost'}`}
+              className={`btn ${isInCompare(product.id) ? 'btn-primary' : 'btn-ghost'}`}
+              style={{ flex:1, height:46, fontSize:'0.95rem' }}
               onClick={() => addToCompare({
                 id: product.id, slug: product.slug, name: product.name,
                 thumbnail: product.thumbnail, price: product.price,
@@ -147,7 +148,7 @@ export default function ProductDetailPage() {
                 avg_rating: product.avg_rating, stock_quantity: product.stock_quantity,
               })}
             >
-              <BarChart2 size={14}/> {isInCompare(product.id) ? 'Đang so sánh' : 'So sánh'}
+              <BarChart2 size={16}/> {isInCompare(product.id) ? 'Đang so sánh' : 'So sánh'}
             </button>
           </div>
 
