@@ -29,8 +29,13 @@ export default function LoginPage() {
   };
 
   const fillDemo = (role) => {
-    const demos = { admin: { email: 'admin@techstore.vn', password: 'password' }, user: { email: 'user@techstore.vn', password: 'password' } };
-    setForm(demos[role]);
+    const demos = {
+      admin: { email: 'admin@techstore.vn',           password: 'password' },
+      user:  { email: 'nguyenvan.an@example.com',     password: 'password' },
+      staff: { email: 'staff@techstore.vn',            password: 'password' },
+    };
+    setForm(demos[role] || demos.user);
+    toast('Đã điền thông tin demo — nhấn Đăng nhập', { icon: '✅' });
   };
 
   return (
@@ -50,10 +55,25 @@ export default function LoginPage() {
           <div className="card-body" style={{ padding: 32 }}>
             <h2 style={{ fontSize: '1.3rem', fontWeight: 700, marginBottom: 24 }}>Đăng nhập</h2>
 
-            {/* Demo buttons */}
-            <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-              <button className="btn btn-ghost btn-sm btn-full" onClick={() => fillDemo('user')} style={{ fontSize: '0.78rem', border: '1px solid var(--border)' }}>Demo User</button>
-              <button className="btn btn-ghost btn-sm btn-full" onClick={() => fillDemo('admin')} style={{ fontSize: '0.78rem', border: '1px solid var(--border)' }}>Demo Admin</button>
+            {/* Demo accounts */}
+            <div style={{ background: 'rgba(59,130,246,0.07)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 10, padding: '10px 14px', marginBottom: 20 }}>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
+                🧪 Tài khoản demo (mật khẩu: password)
+              </div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <button className="btn btn-ghost btn-sm" onClick={() => fillDemo('user')}
+                  style={{ fontSize: '0.75rem', border: '1px solid var(--border)', flex: 1 }}>
+                  👤 Khách hàng
+                </button>
+                <button className="btn btn-ghost btn-sm" onClick={() => fillDemo('staff')}
+                  style={{ fontSize: '0.75rem', border: '1px solid var(--border)', flex: 1 }}>
+                  🛠 Nhân viên
+                </button>
+                <button className="btn btn-ghost btn-sm" onClick={() => fillDemo('admin')}
+                  style={{ fontSize: '0.75rem', border: '1px solid rgba(59,130,246,0.5)', flex: 1, color: 'var(--accent)' }}>
+                  ⚙️ Admin
+                </button>
+              </div>
             </div>
 
             <form onSubmit={handleSubmit}>

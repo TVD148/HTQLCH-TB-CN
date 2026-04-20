@@ -1,4 +1,4 @@
-﻿-- ============================================================
+-- ============================================================
 -- SEED SQL - Du lieu mau cho htqlch_thietbi_cn
 -- Charset: utf8mb4 | Du lieu hien thi: Tieng Viet co dau
 -- Import: mysql -u root --execute="SOURCE path/to/seed.sql"
@@ -43,15 +43,15 @@ INSERT INTO nguoi_dung
   (ho_ten, ten, ho, email, mat_khau_ma_hoa, vai_tro, so_dien_thoai, diem_tich_luy, trang_thai)
 VALUES
   (N'Quản trị viên', N'Admin', N'Quản trị', 'admin@techstore.vn',
-   '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin', '0901000001', 0, 1),
+   '$2a$10$hQjljPowvrxVMN0Edol/pO807sopnQr5mKSAzLJKjwoTb0LTm8LWG', 'admin', '0901000001', 0, 1),
   (N'Nhân viên Kỹ thuật', N'Kỹ thuật', N'Nhân viên', 'staff@techstore.vn',
-   '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'staff', '0901000002', 0, 1),
+   '$2a$10$hQjljPowvrxVMN0Edol/pO807sopnQr5mKSAzLJKjwoTb0LTm8LWG', 'staff', '0901000002', 0, 1),
   (N'Nguyễn Văn An', N'An', N'Nguyễn', 'nguyenvan.an@example.com',
-   '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'user', '0912345678', 150, 1),
+   '$2a$10$hQjljPowvrxVMN0Edol/pO807sopnQr5mKSAzLJKjwoTb0LTm8LWG', 'user', '0912345678', 150, 1),
   (N'Trần Thị Bình', N'Bình', N'Trần', 'tranthi.binh@example.com',
-   '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'user', '0923456789', 80, 1),
+   '$2a$10$hQjljPowvrxVMN0Edol/pO807sopnQr5mKSAzLJKjwoTb0LTm8LWG', 'user', '0923456789', 80, 1),
   (N'Lê Văn Cường', N'Cường', N'Lê', 'levan.cuong@example.com',
-   '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'user', '0934567890', 200, 1);
+   '$2a$10$hQjljPowvrxVMN0Edol/pO807sopnQr5mKSAzLJKjwoTb0LTm8LWG', 'user', '0934567890', 200, 1);
 
 -- ============================================================
 -- DANH MUC SAN PHAM
