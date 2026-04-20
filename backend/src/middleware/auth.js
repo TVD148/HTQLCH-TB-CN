@@ -3,7 +3,7 @@ const db = require('../config/database');
 
 /**
  * Middleware xác thực JWT token
- * Gắn req.user = { id, email, role } nếu hợp lệ
+ * Gắn req.user = { ma_nguoi_dung, email, vai_tro } nếu hợp lệ
  */
 const verifyToken = async (req, res, next) => {
   try {
@@ -15,9 +15,10 @@ const verifyToken = async (req, res, next) => {
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Kiểm tra user còn tồn tại và active
+    // Kiểm tra user còn tồn tại và đang hoạt động
     const [rows] = await db.query(
-      'SELECT id, name, email, role, is_active FROM users WHERE id = ?',
+      `SELECT ma_nguoi_dung AS id, ho_ten AS name, email, vai_tro AS role, trang_thai AS is_active
+       FROM nguoi_dung WHERE ma_nguoi_dung = ?`,
       [decoded.id]
     );
 
@@ -36,8 +37,7 @@ const verifyToken = async (req, res, next) => {
 };
 
 /**
- * Middleware tùy chọn – không bắt buộc đăng nhập
- * Nếu có token hợp lệ thì gắn req.user, không thì tiếp tục
+ * Middleware tuỳ chọn – không bắt buộc đăng nhập
  */
 const optionalAuth = async (req, res, next) => {
   try {
@@ -46,7 +46,8 @@ const optionalAuth = async (req, res, next) => {
       const token = authHeader.split(' ')[1];
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       const [rows] = await db.query(
-        'SELECT id, name, email, role FROM users WHERE id = ? AND is_active = 1',
+        `SELECT ma_nguoi_dung AS id, ho_ten AS name, email, vai_tro AS role
+         FROM nguoi_dung WHERE ma_nguoi_dung = ? AND trang_thai = 1`,
         [decoded.id]
       );
       if (rows.length) req.user = rows[0];
@@ -55,4 +56,20 @@ const optionalAuth = async (req, res, next) => {
   next();
 };
 
-module.exports = { verifyToken, optionalAuth };
+/** Chỉ cho phép admin */
+const requireAdmin = (req, res, next) => {
+  if (req.user?.role !== 'admin') {
+    return res.status(403).json({ success: false, message: 'Chỉ Admin mới có quyền thực hiện' });
+  }
+  next();
+};
+
+/** Cho phép admin hoặc staff */
+const requireStaff = (req, res, next) => {
+  if (!['admin', 'staff'].includes(req.user?.role)) {
+    return res.status(403).json({ success: false, message: 'Không đủ quyền truy cập' });
+  }
+  next();
+};
+
+module.exports = { verifyToken, optionalAuth, requireAdmin, requireStaff };

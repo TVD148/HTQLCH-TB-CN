@@ -3,7 +3,6 @@ const slugify = require('slugify');
 
 /**
  * GET /api/products
- * Query params: search, category, brand, min_price, max_price, min_rating, sort, page, limit, featured
  */
 const getProducts = async (req, res, next) => {
   try {
@@ -18,85 +17,79 @@ const getProducts = async (req, res, next) => {
     const limitNum = Math.min(48, Math.max(1, parseInt(limit)));
     const offset   = (pageNum - 1) * limitNum;
 
-    let where = ['p.is_active = 1'];
+    let where = ['p.trang_thai = 1'];
     let params = [];
 
     if (search) {
-      where.push('(p.name LIKE ? OR p.short_desc LIKE ?)');
+      where.push('(p.ten_san_pham LIKE ? OR p.mo_ta_ngan LIKE ?)');
       params.push(`%${search}%`, `%${search}%`);
     }
     if (category) {
-      // Lấy cả danh mục con
-      where.push('(p.category_id = ? OR c.parent_id = ?)');
+      where.push('(p.ma_danh_muc = ? OR dm.ma_danh_muc_cha = ?)');
       params.push(category, category);
     }
     if (brand) {
       const brandIds = brand.split(',').map(Number).filter(Boolean);
-      where.push(`p.brand_id IN (${brandIds.map(() => '?').join(',')})`);
+      where.push(`p.ma_thuong_hieu IN (${brandIds.map(() => '?').join(',')})`);
       params.push(...brandIds);
     }
     if (Number(min_price) > 0) {
-      where.push('COALESCE(p.sale_price, p.price) >= ?');
+      where.push('COALESCE(p.gia_khuyen_mai, p.gia_goc) >= ?');
       params.push(Number(min_price));
     }
     if (Number(max_price) > 0) {
-      where.push('COALESCE(p.sale_price, p.price) <= ?');
+      where.push('COALESCE(p.gia_khuyen_mai, p.gia_goc) <= ?');
       params.push(Number(max_price));
     }
     if (Number(min_rating) > 0) {
-      where.push('p.avg_rating >= ?');
+      where.push('p.danh_gia_tb >= ?');
       params.push(Number(min_rating));
     }
     if (featured === '1') {
-      where.push('p.is_featured = 1');
+      where.push('p.noi_bat = 1');
     }
 
     const sortMap = {
-      newest:     'p.created_at DESC',
-      oldest:     'p.created_at ASC',
-      price_asc:  'COALESCE(p.sale_price, p.price) ASC',
-      price_desc: 'COALESCE(p.sale_price, p.price) DESC',
-      rating:     'p.avg_rating DESC',
-      popular:    'p.view_count DESC',
+      newest:     'p.ngay_tao DESC',
+      oldest:     'p.ngay_tao ASC',
+      price_asc:  'COALESCE(p.gia_khuyen_mai, p.gia_goc) ASC',
+      price_desc: 'COALESCE(p.gia_khuyen_mai, p.gia_goc) DESC',
+      rating:     'p.danh_gia_tb DESC',
+      popular:    'p.luot_xem DESC',
     };
-    const orderBy = sortMap[sort] || 'p.created_at DESC';
+    const orderBy = sortMap[sort] || 'p.ngay_tao DESC';
     const whereStr = where.join(' AND ');
 
     const baseQuery = `
-      FROM products p
-      LEFT JOIN categories c ON c.id = p.category_id
-      LEFT JOIN brands b     ON b.id = p.brand_id
+      FROM san_pham p
+      LEFT JOIN danh_muc dm ON dm.ma_danh_muc = p.ma_danh_muc
+      LEFT JOIN thuong_hieu th ON th.ma_thuong_hieu = p.ma_thuong_hieu
       WHERE ${whereStr}
     `;
 
-    const [countRows] = await db.query(`SELECT COUNT(DISTINCT p.id) as total ${baseQuery}`, params);
+    const [countRows] = await db.query(`SELECT COUNT(DISTINCT p.ma_san_pham) AS total ${baseQuery}`, params);
     const total = countRows[0].total;
 
     const [products] = await db.query(
-      `SELECT DISTINCT p.id, p.name, p.slug, p.short_desc, p.price, p.sale_price,
-              p.stock_quantity, p.thumbnail, p.avg_rating, p.view_count, p.is_featured,
-              c.id as category_id, c.name as category_name,
-              b.id as brand_id, b.name as brand_name
+      `SELECT DISTINCT
+              p.ma_san_pham AS id, p.ten_san_pham AS name, p.duong_dan AS slug,
+              p.mo_ta_ngan AS short_desc, p.gia_goc AS price, p.gia_khuyen_mai AS sale_price,
+              p.so_luong_ton AS stock_quantity, p.anh_dai_dien AS thumbnail,
+              p.danh_gia_tb AS avg_rating, p.luot_xem AS view_count, p.noi_bat AS is_featured,
+              dm.ma_danh_muc AS category_id, dm.ten_danh_muc AS category_name,
+              th.ma_thuong_hieu AS brand_id, th.ten_thuong_hieu AS brand_name
        ${baseQuery}
        ORDER BY ${orderBy}
        LIMIT ? OFFSET ?`,
       [...params, limitNum, offset]
     );
 
-    // Cập nhật view_count nếu xem chi tiết (không cần ở list)
     res.json({
       success: true,
       data: products,
-      pagination: {
-        total,
-        page: pageNum,
-        limit: limitNum,
-        totalPages: Math.ceil(total / limitNum),
-      },
+      pagination: { total, page: pageNum, limit: limitNum, totalPages: Math.ceil(total / limitNum) },
     });
-  } catch (err) {
-    next(err);
-  }
+  } catch (err) { next(err); }
 };
 
 /**
@@ -107,12 +100,19 @@ const getProductBySlug = async (req, res, next) => {
     const { slug } = req.params;
 
     const [rows] = await db.query(
-      `SELECT p.*, c.name as category_name, c.slug as category_slug,
-              b.name as brand_name, b.logo_url as brand_logo
-       FROM products p
-       JOIN categories c ON c.id = p.category_id
-       JOIN brands b     ON b.id = p.brand_id
-       WHERE p.slug = ? AND p.is_active = 1`,
+      `SELECT p.*,
+              p.ma_san_pham AS id, p.ten_san_pham AS name, p.duong_dan AS slug,
+              p.gia_goc AS price, p.gia_khuyen_mai AS sale_price,
+              p.so_luong_ton AS stock_quantity, p.anh_dai_dien AS thumbnail,
+              p.danh_gia_tb AS avg_rating, p.luot_xem AS view_count,
+              p.noi_bat AS is_featured, p.trang_thai AS is_active,
+              p.mo_ta AS description, p.mo_ta_ngan AS short_desc,
+              dm.ten_danh_muc AS category_name, dm.duong_dan AS category_slug,
+              th.ten_thuong_hieu AS brand_name, th.logo AS brand_logo
+       FROM san_pham p
+       JOIN danh_muc dm  ON dm.ma_danh_muc    = p.ma_danh_muc
+       JOIN thuong_hieu th ON th.ma_thuong_hieu = p.ma_thuong_hieu
+       WHERE p.duong_dan = ? AND p.trang_thai = 1`,
       [slug]
     );
 
@@ -121,108 +121,98 @@ const getProductBySlug = async (req, res, next) => {
     }
 
     const product = rows[0];
+    const pid = product.ma_san_pham;
 
-    // Thông số kỹ thuật
     const [specs] = await db.query(
-      'SELECT spec_name, spec_value, unit FROM product_specs WHERE product_id = ? ORDER BY sort_order',
-      [product.id]
+      `SELECT ten_thong_so AS spec_name, gia_tri AS spec_value, don_vi AS unit
+       FROM thong_so_ky_thuat WHERE ma_san_pham = ? ORDER BY thu_tu`,
+      [pid]
     );
 
-    // Ảnh
     const [images] = await db.query(
-      'SELECT image_url, is_primary FROM product_images WHERE product_id = ? ORDER BY sort_order',
-      [product.id]
+      `SELECT duong_dan_anh AS image_url, la_anh_chinh AS is_primary
+       FROM anh_san_pham WHERE ma_san_pham = ? ORDER BY thu_tu`,
+      [pid]
     );
 
-    // Đánh giá (top 10)
     const [reviews] = await db.query(
-      `SELECT r.id, r.rating, r.comment, r.created_at,
-              u.name as user_name, u.avatar_url
-       FROM reviews r
-       JOIN users u ON u.id = r.user_id
-       WHERE r.product_id = ? AND r.is_approved = 1
-       ORDER BY r.created_at DESC LIMIT 10`,
-      [product.id]
+      `SELECT dg.ma_danh_gia AS id, dg.so_sao AS rating, dg.binh_luan AS comment, dg.ngay_tao AS created_at,
+              nd.ho_ten AS user_name, nd.anh_dai_dien AS avatar_url
+       FROM danh_gia dg
+       JOIN nguoi_dung nd ON nd.ma_nguoi_dung = dg.ma_nguoi_dung
+       WHERE dg.ma_san_pham = ? AND dg.da_duyet = 1
+       ORDER BY dg.ngay_tao DESC LIMIT 10`,
+      [pid]
     );
 
-    // Rating summary
     const [ratingSummary] = await db.query(
-      `SELECT rating, COUNT(*) as count
-       FROM reviews WHERE product_id = ? AND is_approved = 1
-       GROUP BY rating ORDER BY rating DESC`,
-      [product.id]
+      `SELECT so_sao AS rating, COUNT(*) AS count
+       FROM danh_gia WHERE ma_san_pham = ? AND da_duyet = 1
+       GROUP BY so_sao ORDER BY so_sao DESC`,
+      [pid]
     );
 
-    // Sản phẩm liên quan
     const [related] = await db.query(
-      `SELECT id, name, slug, price, sale_price, thumbnail, avg_rating
-       FROM products
-       WHERE category_id = ? AND id != ? AND is_active = 1
-       ORDER BY view_count DESC LIMIT 8`,
-      [product.category_id, product.id]
+      `SELECT ma_san_pham AS id, ten_san_pham AS name, duong_dan AS slug,
+              gia_goc AS price, gia_khuyen_mai AS sale_price, anh_dai_dien AS thumbnail, danh_gia_tb AS avg_rating
+       FROM san_pham
+       WHERE ma_danh_muc = ? AND ma_san_pham != ? AND trang_thai = 1
+       ORDER BY luot_xem DESC LIMIT 8`,
+      [product.ma_danh_muc, pid]
     );
 
-    // Tăng view count
-    await db.query('UPDATE products SET view_count = view_count + 1 WHERE id = ?', [product.id]);
+    await db.query('UPDATE san_pham SET luot_xem = luot_xem + 1 WHERE ma_san_pham = ?', [pid]);
 
     res.json({
       success: true,
       data: { ...product, specs, images, reviews, rating_summary: ratingSummary, related },
     });
-  } catch (err) {
-    next(err);
-  }
+  } catch (err) { next(err); }
 };
 
 /**
- * GET /api/products/compare?ids=1,2,3
+ * GET /api/products/compare?ids=slug1,slug2
  */
 const compareProducts = async (req, res, next) => {
   try {
-    const ids = (req.query.ids || '').split(',').map(Number).filter(Boolean).slice(0, 4);
-    if (ids.length < 2) {
+    const slugs = (req.query.ids || '').split(',').map(s => s.trim()).filter(Boolean).slice(0, 4);
+    if (slugs.length < 2) {
       return res.status(400).json({ success: false, message: 'Cần ít nhất 2 sản phẩm để so sánh' });
     }
 
     const [products] = await db.query(
-      `SELECT p.id, p.name, p.slug, p.price, p.sale_price, p.thumbnail, p.avg_rating,
-              c.name as category_name, b.name as brand_name
-       FROM products p
-       JOIN categories c ON c.id = p.category_id
-       JOIN brands b     ON b.id = p.brand_id
-       WHERE p.id IN (${ids.map(() => '?').join(',')})`,
-      ids
+      `SELECT p.ma_san_pham AS id, p.ten_san_pham AS name, p.duong_dan AS slug,
+              p.gia_goc AS price, p.gia_khuyen_mai AS sale_price,
+              p.anh_dai_dien AS thumbnail, p.danh_gia_tb AS avg_rating,
+              dm.ten_danh_muc AS category_name, th.ten_thuong_hieu AS brand_name
+       FROM san_pham p
+       JOIN danh_muc dm  ON dm.ma_danh_muc    = p.ma_danh_muc
+       JOIN thuong_hieu th ON th.ma_thuong_hieu = p.ma_thuong_hieu
+       WHERE p.duong_dan IN (${slugs.map(() => '?').join(',')})`,
+      slugs
     );
 
-    // Lấy tất cả specs của các sản phẩm
+    const ids = products.map(p => p.id);
+    if (!ids.length) return res.json({ success: true, data: [] });
+
     const [allSpecs] = await db.query(
-      `SELECT product_id, spec_name, spec_value, unit
-       FROM product_specs WHERE product_id IN (${ids.map(() => '?').join(',')})
-       ORDER BY sort_order`,
+      `SELECT ma_san_pham AS product_id, ten_thong_so AS spec_name, gia_tri AS spec_value, don_vi AS unit
+       FROM thong_so_ky_thuat WHERE ma_san_pham IN (${ids.map(() => '?').join(',')}) ORDER BY thu_tu`,
       ids
     );
 
-    // Group specs theo product
     const specsMap = {};
     allSpecs.forEach(s => {
       if (!specsMap[s.product_id]) specsMap[s.product_id] = [];
       specsMap[s.product_id].push(s);
     });
 
-    const result = products.map(p => ({
-      ...p,
-      specs: specsMap[p.id] || [],
-    }));
-
+    const result = products.map(p => ({ ...p, specs: specsMap[p.id] || [] }));
     res.json({ success: true, data: result });
-  } catch (err) {
-    next(err);
-  }
+  } catch (err) { next(err); }
 };
 
-/**
- * POST /api/admin/products (Admin only)
- */
+/** POST /api/admin/products */
 const createProduct = async (req, res, next) => {
   try {
     const { name, description, short_desc, price, sale_price, stock_quantity,
@@ -235,101 +225,96 @@ const createProduct = async (req, res, next) => {
     const slug = slugify(name, { lower: true, strict: true, locale: 'vi' }) + '-' + Date.now();
 
     const [result] = await db.query(
-      `INSERT INTO products (name, slug, description, short_desc, price, sale_price,
-        stock_quantity, min_stock_alert, category_id, brand_id, thumbnail, is_featured)
+      `INSERT INTO san_pham
+         (ten_san_pham, duong_dan, mo_ta, mo_ta_ngan, gia_goc, gia_khuyen_mai,
+          so_luong_ton, canh_bao_ton_toi_thieu, ma_danh_muc, ma_thuong_hieu, anh_dai_dien, noi_bat)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [name, slug, description, short_desc, price, sale_price || null,
        stock_quantity || 0, min_stock_alert || 5, category_id, brand_id,
        thumbnail || null, is_featured ? 1 : 0]
     );
-
     const productId = result.insertId;
 
-    // Thêm thông số kỹ thuật
     if (specs && specs.length > 0) {
       const specValues = specs.map((s, i) => [productId, s.spec_name, s.spec_value, s.unit || null, i]);
       await db.query(
-        'INSERT INTO product_specs (product_id, spec_name, spec_value, unit, sort_order) VALUES ?',
+        'INSERT INTO thong_so_ky_thuat (ma_san_pham, ten_thong_so, gia_tri, don_vi, thu_tu) VALUES ?',
         [specValues]
       );
     }
 
-    // Log nhập kho ban đầu
     if (stock_quantity > 0) {
       await db.query(
-        `INSERT INTO inventory_logs (product_id, user_id, quantity_change, stock_before, stock_after, type, note)
-         VALUES (?, ?, ?, 0, ?, 'import', 'Nhập hàng ban đầu khi tạo sản phẩm')`,
+        `INSERT INTO lich_su_kho (ma_san_pham, ma_nguoi_dung, so_luong_bien_dong, ton_kho_truoc, ton_kho_sau, loai_giao_dich, ghi_chu)
+         VALUES (?, ?, ?, 0, ?, 'nhap', 'Nhập hàng ban đầu khi tạo sản phẩm')`,
         [productId, req.user.id, stock_quantity, stock_quantity]
       );
     }
 
-    const [product] = await db.query('SELECT * FROM products WHERE id = ?', [productId]);
+    const [product] = await db.query(
+      `SELECT ma_san_pham AS id, ten_san_pham AS name, duong_dan AS slug,
+              gia_goc AS price, gia_khuyen_mai AS sale_price, so_luong_ton AS stock_quantity
+       FROM san_pham WHERE ma_san_pham = ?`, [productId]
+    );
     res.status(201).json({ success: true, message: 'Tạo sản phẩm thành công!', data: product[0] });
-  } catch (err) {
-    next(err);
-  }
+  } catch (err) { next(err); }
 };
 
-/**
- * PUT /api/admin/products/:id
- */
+/** PUT /api/admin/products/:id */
 const updateProduct = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { name, description, short_desc, price, sale_price, stock_quantity,
             min_stock_alert, category_id, brand_id, thumbnail, is_active, is_featured, specs } = req.body;
 
-    const [existing] = await db.query('SELECT * FROM products WHERE id = ?', [id]);
+    const [existing] = await db.query('SELECT * FROM san_pham WHERE ma_san_pham = ?', [id]);
     if (!existing.length) {
       return res.status(404).json({ success: false, message: 'Sản phẩm không tìm thấy' });
     }
+    const ex = existing[0];
 
     const slug = name
       ? slugify(name, { lower: true, strict: true, locale: 'vi' }) + '-' + id
-      : existing[0].slug;
+      : ex.duong_dan;
 
     await db.query(
-      `UPDATE products SET name=?, slug=?, description=?, short_desc=?, price=?,
-        sale_price=?, stock_quantity=?, min_stock_alert=?, category_id=?,
-        brand_id=?, thumbnail=?, is_active=?, is_featured=?
-       WHERE id = ?`,
-      [name || existing[0].name, slug, description, short_desc, price || existing[0].price,
-       sale_price || null, stock_quantity ?? existing[0].stock_quantity,
-       min_stock_alert ?? existing[0].min_stock_alert,
-       category_id || existing[0].category_id, brand_id || existing[0].brand_id,
-       thumbnail || existing[0].thumbnail, is_active ?? existing[0].is_active,
-       is_featured ? 1 : 0, id]
+      `UPDATE san_pham SET
+         ten_san_pham=?, duong_dan=?, mo_ta=?, mo_ta_ngan=?, gia_goc=?,
+         gia_khuyen_mai=?, so_luong_ton=?, canh_bao_ton_toi_thieu=?,
+         ma_danh_muc=?, ma_thuong_hieu=?, anh_dai_dien=?, trang_thai=?, noi_bat=?
+       WHERE ma_san_pham = ?`,
+      [name || ex.ten_san_pham, slug, description ?? ex.mo_ta, short_desc ?? ex.mo_ta_ngan,
+       price || ex.gia_goc, sale_price || null,
+       stock_quantity ?? ex.so_luong_ton, min_stock_alert ?? ex.canh_bao_ton_toi_thieu,
+       category_id || ex.ma_danh_muc, brand_id || ex.ma_thuong_hieu,
+       thumbnail || ex.anh_dai_dien, is_active ?? ex.trang_thai, is_featured ? 1 : 0, id]
     );
 
-    // Cập nhật specs nếu có
     if (specs && specs.length > 0) {
-      await db.query('DELETE FROM product_specs WHERE product_id = ?', [id]);
+      await db.query('DELETE FROM thong_so_ky_thuat WHERE ma_san_pham = ?', [id]);
       const specValues = specs.map((s, i) => [id, s.spec_name, s.spec_value, s.unit || null, i]);
       await db.query(
-        'INSERT INTO product_specs (product_id, spec_name, spec_value, unit, sort_order) VALUES ?',
+        'INSERT INTO thong_so_ky_thuat (ma_san_pham, ten_thong_so, gia_tri, don_vi, thu_tu) VALUES ?',
         [specValues]
       );
     }
 
-    const [updated] = await db.query('SELECT * FROM products WHERE id = ?', [id]);
+    const [updated] = await db.query(
+      `SELECT ma_san_pham AS id, ten_san_pham AS name, duong_dan AS slug,
+              gia_goc AS price, gia_khuyen_mai AS sale_price, so_luong_ton AS stock_quantity
+       FROM san_pham WHERE ma_san_pham = ?`, [id]
+    );
     res.json({ success: true, message: 'Cập nhật sản phẩm thành công!', data: updated[0] });
-  } catch (err) {
-    next(err);
-  }
+  } catch (err) { next(err); }
 };
 
-/**
- * DELETE /api/admin/products/:id
- */
+/** DELETE /api/admin/products/:id */
 const deleteProduct = async (req, res, next) => {
   try {
     const { id } = req.params;
-    // Soft delete
-    await db.query('UPDATE products SET is_active = 0 WHERE id = ?', [id]);
+    await db.query('UPDATE san_pham SET trang_thai = 0 WHERE ma_san_pham = ?', [id]);
     res.json({ success: true, message: 'Xóa sản phẩm thành công!' });
-  } catch (err) {
-    next(err);
-  }
+  } catch (err) { next(err); }
 };
 
 module.exports = { getProducts, getProductBySlug, compareProducts, createProduct, updateProduct, deleteProduct };

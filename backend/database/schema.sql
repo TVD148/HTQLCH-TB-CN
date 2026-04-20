@@ -1,338 +1,361 @@
 -- ============================================================
 -- SCHEMA SQL - He thong Quan ly Cua hang Thiet bi Cong nghe
 -- Database: htqlch_thietbi_cn
--- Author: HTTT01 Team
--- Version: 1.0.0
--- Compatible: MySQL 8+, MariaDB 10.4+
+-- Ten bang & cot: Tieng Viet (khong dau)
+-- Version: 2.0.0
 -- ============================================================
 
+SET NAMES utf8mb4;
 SET sql_mode = '';
-SET GLOBAL sql_mode = '';
 
-CREATE DATABASE IF NOT EXISTS htqlch_thietbi_cn
+DROP DATABASE IF EXISTS htqlch_thietbi_cn;
+
+CREATE DATABASE htqlch_thietbi_cn
   CHARACTER SET utf8mb4
   COLLATE utf8mb4_unicode_ci;
 
 USE htqlch_thietbi_cn;
 
 -- ============================================================
--- 1. BANG NGUOI DUNG (USERS)
+-- 1. BANG NGUOI DUNG
 -- ============================================================
-CREATE TABLE IF NOT EXISTS users (
-  id            INT AUTO_INCREMENT PRIMARY KEY,
-  name          VARCHAR(100)  NOT NULL,
-  email         VARCHAR(150)  NOT NULL UNIQUE,
-  password_hash VARCHAR(255)  NOT NULL,
-  role          ENUM('admin','staff','user') NOT NULL DEFAULT 'user',
-  phone         VARCHAR(20)   NULL,
-  address       TEXT          NULL,
-  avatar_url    VARCHAR(255)  NULL,
-  loyalty_points INT          NOT NULL DEFAULT 0,
-  is_active     TINYINT(1)   NOT NULL DEFAULT 1,
-  email_verified_at TIMESTAMP NULL,
-  created_at    TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at    TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  INDEX idx_email (email),
-  INDEX idx_role  (role)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE nguoi_dung (
+  ma_nguoi_dung       INT AUTO_INCREMENT PRIMARY KEY,
+  ho_ten              VARCHAR(100)  NOT NULL,
+  ten                 VARCHAR(50)   NULL COMMENT 'Ten (de sap xep A-Z)',
+  ho                  VARCHAR(50)   NULL COMMENT 'Ho',
+  email               VARCHAR(150)  NOT NULL UNIQUE,
+  mat_khau_ma_hoa     VARCHAR(255)  NOT NULL,
+  vai_tro             ENUM('admin','staff','user') NOT NULL DEFAULT 'user',
+  so_dien_thoai       VARCHAR(20)   NULL,
+  dia_chi             TEXT          NULL,
+  anh_dai_dien        VARCHAR(255)  NULL,
+  diem_tich_luy       INT           NOT NULL DEFAULT 0,
+  trang_thai          TINYINT(1)    NOT NULL DEFAULT 1,
+  ngay_xac_thuc_email TIMESTAMP     NULL,
+  ngay_tao            TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  ngay_cap_nhat       TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_email    (email),
+  INDEX idx_vai_tro  (vai_tro)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Bang luu thong tin nguoi dung / khach hang';
 
 -- ============================================================
--- 2. BANG DANH MUC (CATEGORIES)
+-- 2. BANG DANH MUC SAN PHAM
 -- ============================================================
-CREATE TABLE IF NOT EXISTS categories (
-  id          INT AUTO_INCREMENT PRIMARY KEY,
-  name        VARCHAR(100)  NOT NULL,
-  slug        VARCHAR(120)  NOT NULL UNIQUE,
-  description TEXT          NULL,
-  image_url   VARCHAR(255)  NULL,
-  parent_id   INT           NULL,
-  is_active   TINYINT(1)   NOT NULL DEFAULT 1,
-  sort_order  INT           NOT NULL DEFAULT 0,
-  created_at  TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (parent_id) REFERENCES categories(id) ON DELETE SET NULL,
-  INDEX idx_slug      (slug),
-  INDEX idx_parent_id (parent_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE danh_muc (
+  ma_danh_muc     INT AUTO_INCREMENT PRIMARY KEY,
+  ten_danh_muc    VARCHAR(100)  NOT NULL,
+  duong_dan       VARCHAR(120)  NOT NULL UNIQUE,
+  mo_ta           TEXT          NULL,
+  hinh_anh        VARCHAR(255)  NULL,
+  ma_danh_muc_cha INT           NULL,
+  trang_thai      TINYINT(1)    NOT NULL DEFAULT 1,
+  thu_tu          INT           NOT NULL DEFAULT 0,
+  ngay_tao        TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (ma_danh_muc_cha) REFERENCES danh_muc(ma_danh_muc) ON DELETE SET NULL,
+  INDEX idx_duong_dan      (duong_dan),
+  INDEX idx_danh_muc_cha   (ma_danh_muc_cha)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Bang danh muc san pham (co the co phan cap)';
 
 -- ============================================================
--- 3. BANG THUONG HIEU (BRANDS)
+-- 3. BANG THUONG HIEU (BRAND)
 -- ============================================================
-CREATE TABLE IF NOT EXISTS brands (
-  id        INT AUTO_INCREMENT PRIMARY KEY,
-  name      VARCHAR(100)  NOT NULL UNIQUE,
-  slug      VARCHAR(120)  NOT NULL UNIQUE,
-  logo_url  VARCHAR(255)  NULL,
-  country   VARCHAR(50)   NULL,
-  is_active TINYINT(1)   NOT NULL DEFAULT 1,
-  created_at TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE thuong_hieu (
+  ma_thuong_hieu  INT AUTO_INCREMENT PRIMARY KEY,
+  ten_thuong_hieu VARCHAR(100)  NOT NULL UNIQUE,
+  duong_dan       VARCHAR(120)  NOT NULL UNIQUE,
+  logo            VARCHAR(255)  NULL,
+  quoc_gia        VARCHAR(50)   NULL,
+  trang_thai      TINYINT(1)    NOT NULL DEFAULT 1,
+  ngay_tao        TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Bang thuong hieu san pham';
 
 -- ============================================================
--- 4. BANG SAN PHAM (PRODUCTS)
+-- 4. BANG SAN PHAM
 -- ============================================================
-CREATE TABLE IF NOT EXISTS products (
-  id              INT AUTO_INCREMENT PRIMARY KEY,
-  name            VARCHAR(200)     NOT NULL,
-  slug            VARCHAR(220)     NOT NULL UNIQUE,
-  description     TEXT             NULL,
-  short_desc      TEXT             NULL,
-  price           DECIMAL(15,2)    NOT NULL,
-  sale_price      DECIMAL(15,2)    NULL,
-  stock_quantity  INT              NOT NULL DEFAULT 0,
-  min_stock_alert INT              NOT NULL DEFAULT 5,
-  category_id     INT              NOT NULL,
-  brand_id        INT              NOT NULL,
-  thumbnail       VARCHAR(255)     NULL,
-  is_active       TINYINT(1)      NOT NULL DEFAULT 1,
-  is_featured     TINYINT(1)      NOT NULL DEFAULT 0,
-  view_count      INT              NOT NULL DEFAULT 0,
-  avg_rating      DECIMAL(3,2)     NOT NULL DEFAULT 0.00,
-  created_at      TIMESTAMP        NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at      TIMESTAMP        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE RESTRICT,
-  FOREIGN KEY (brand_id)    REFERENCES brands(id)     ON DELETE RESTRICT,
-  INDEX idx_slug        (slug),
-  INDEX idx_category_id (category_id),
-  INDEX idx_brand_id    (brand_id),
-  INDEX idx_is_active   (is_active),
-  INDEX idx_is_featured (is_featured),
-  FULLTEXT INDEX ft_name_desc (name, description, short_desc)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE san_pham (
+  ma_san_pham          INT AUTO_INCREMENT PRIMARY KEY,
+  ten_san_pham         VARCHAR(200)    NOT NULL,
+  duong_dan            VARCHAR(220)    NOT NULL UNIQUE,
+  mo_ta                TEXT            NULL,
+  mo_ta_ngan           TEXT            NULL,
+  gia_goc              DECIMAL(15,2)   NOT NULL,
+  gia_khuyen_mai       DECIMAL(15,2)   NULL,
+  so_luong_ton         INT             NOT NULL DEFAULT 0,
+  canh_bao_ton_toi_thieu INT           NOT NULL DEFAULT 5,
+  ma_danh_muc          INT             NOT NULL,
+  ma_thuong_hieu       INT             NOT NULL,
+  anh_dai_dien         VARCHAR(255)    NULL,
+  trang_thai           TINYINT(1)      NOT NULL DEFAULT 1,
+  noi_bat              TINYINT(1)      NOT NULL DEFAULT 0,
+  luot_xem             INT             NOT NULL DEFAULT 0,
+  danh_gia_tb          DECIMAL(3,2)    NOT NULL DEFAULT 0.00,
+  ngay_tao             TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  ngay_cap_nhat        TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (ma_danh_muc)    REFERENCES danh_muc(ma_danh_muc)       ON DELETE RESTRICT,
+  FOREIGN KEY (ma_thuong_hieu) REFERENCES thuong_hieu(ma_thuong_hieu)  ON DELETE RESTRICT,
+  INDEX idx_duong_dan   (duong_dan),
+  INDEX idx_danh_muc    (ma_danh_muc),
+  INDEX idx_thuong_hieu (ma_thuong_hieu),
+  INDEX idx_trang_thai  (trang_thai),
+  INDEX idx_noi_bat     (noi_bat),
+  FULLTEXT INDEX ft_tim_kiem (ten_san_pham, mo_ta, mo_ta_ngan)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Bang san pham chinh';
 
 -- ============================================================
--- 5. BANG THONG SO KY THUAT SAN PHAM (PRODUCT_SPECS)
+-- 5. BANG THONG SO KY THUAT SAN PHAM
 -- ============================================================
-CREATE TABLE IF NOT EXISTS product_specs (
-  id         INT AUTO_INCREMENT PRIMARY KEY,
-  product_id INT           NOT NULL,
-  spec_name  VARCHAR(100)  NOT NULL,
-  spec_value VARCHAR(255)  NOT NULL,
-  unit       VARCHAR(50)   NULL,
-  sort_order INT           NOT NULL DEFAULT 0,
-  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
-  INDEX idx_product_id (product_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE thong_so_ky_thuat (
+  ma_thong_so     INT AUTO_INCREMENT PRIMARY KEY,
+  ma_san_pham     INT           NOT NULL,
+  ten_thong_so    VARCHAR(100)  NOT NULL,
+  gia_tri         VARCHAR(255)  NOT NULL,
+  don_vi          VARCHAR(50)   NULL,
+  thu_tu          INT           NOT NULL DEFAULT 0,
+  FOREIGN KEY (ma_san_pham) REFERENCES san_pham(ma_san_pham) ON DELETE CASCADE,
+  INDEX idx_san_pham (ma_san_pham)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Thong so ky thuat cua tung san pham';
 
 -- ============================================================
--- 6. BANG ANH SAN PHAM (PRODUCT_IMAGES)
+-- 6. BANG ANH SAN PHAM
 -- ============================================================
-CREATE TABLE IF NOT EXISTS product_images (
-  id         INT AUTO_INCREMENT PRIMARY KEY,
-  product_id INT           NOT NULL,
-  image_url  VARCHAR(255)  NOT NULL,
-  is_primary TINYINT(1)   NOT NULL DEFAULT 0,
-  sort_order INT           NOT NULL DEFAULT 0,
-  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
-  INDEX idx_product_id (product_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE anh_san_pham (
+  ma_anh          INT AUTO_INCREMENT PRIMARY KEY,
+  ma_san_pham     INT           NOT NULL,
+  duong_dan_anh   VARCHAR(255)  NOT NULL,
+  la_anh_chinh    TINYINT(1)    NOT NULL DEFAULT 0,
+  thu_tu          INT           NOT NULL DEFAULT 0,
+  FOREIGN KEY (ma_san_pham) REFERENCES san_pham(ma_san_pham) ON DELETE CASCADE,
+  INDEX idx_san_pham (ma_san_pham)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Danh sach anh cua san pham';
 
 -- ============================================================
--- 7. BANG GIO HANG (CARTS)
+-- 7. BANG GIO HANG
 -- ============================================================
-CREATE TABLE IF NOT EXISTS carts (
-  id         INT AUTO_INCREMENT PRIMARY KEY,
-  user_id    INT       NOT NULL UNIQUE,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-  INDEX idx_user_id (user_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE gio_hang (
+  ma_gio_hang     INT AUTO_INCREMENT PRIMARY KEY,
+  ma_nguoi_dung   INT       NOT NULL UNIQUE,
+  ngay_tao        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  ngay_cap_nhat   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (ma_nguoi_dung) REFERENCES nguoi_dung(ma_nguoi_dung) ON DELETE CASCADE,
+  INDEX idx_nguoi_dung (ma_nguoi_dung)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Gio hang cua tung nguoi dung';
 
 -- ============================================================
--- 8. BANG SAN PHAM TRONG GIO HANG (CART_ITEMS)
+-- 8. BANG CHI TIET GIO HANG
 -- ============================================================
-CREATE TABLE IF NOT EXISTS cart_items (
-  id         INT AUTO_INCREMENT PRIMARY KEY,
-  cart_id    INT           NOT NULL,
-  product_id INT           NOT NULL,
-  quantity   INT           NOT NULL DEFAULT 1,
-  unit_price DECIMAL(15,2) NOT NULL,
-  added_at   TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (cart_id)    REFERENCES carts(id)    ON DELETE CASCADE,
-  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
-  UNIQUE KEY uq_cart_product (cart_id, product_id),
-  INDEX idx_cart_id (cart_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE chi_tiet_gio_hang (
+  ma_chi_tiet     INT AUTO_INCREMENT PRIMARY KEY,
+  ma_gio_hang     INT           NOT NULL,
+  ma_san_pham     INT           NOT NULL,
+  so_luong        INT           NOT NULL DEFAULT 1,
+  don_gia         DECIMAL(15,2) NOT NULL,
+  ngay_them       TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (ma_gio_hang) REFERENCES gio_hang(ma_gio_hang)   ON DELETE CASCADE,
+  FOREIGN KEY (ma_san_pham) REFERENCES san_pham(ma_san_pham)   ON DELETE CASCADE,
+  UNIQUE KEY uq_gio_san_pham (ma_gio_hang, ma_san_pham),
+  INDEX idx_gio_hang (ma_gio_hang)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='San pham trong gio hang';
 
 -- ============================================================
--- 9. BANG VOUCHER / MA GIAM GIA (VOUCHERS)
+-- 9. BANG MA GIAM GIA (VOUCHER)
 -- ============================================================
-CREATE TABLE IF NOT EXISTS vouchers (
-  id                  INT AUTO_INCREMENT PRIMARY KEY,
-  code                VARCHAR(50)   NOT NULL UNIQUE,
-  name                VARCHAR(150)  NOT NULL,
-  description         TEXT          NULL,
-  discount_type       ENUM('percent','fixed_amount') NOT NULL,
-  discount_value      DECIMAL(15,2) NOT NULL,
-  max_discount_amount DECIMAL(15,2) NULL COMMENT 'Giam toi da (cho loai percent)',
-  min_order_value     DECIMAL(15,2) NOT NULL DEFAULT 0 COMMENT 'Gia tri don toi thieu',
-  max_uses            INT           NOT NULL DEFAULT 1,
-  used_count          INT           NOT NULL DEFAULT 0,
-  max_uses_per_user   INT           NOT NULL DEFAULT 1,
-  is_active           TINYINT(1)   NOT NULL DEFAULT 1,
-  start_date          DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  expired_at          DATETIME      NOT NULL DEFAULT '2099-12-31 23:59:59',
-  created_at          DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  INDEX idx_code       (code),
-  INDEX idx_is_active  (is_active),
-  INDEX idx_expired_at (expired_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE ma_giam_gia (
+  ma_voucher          INT AUTO_INCREMENT PRIMARY KEY,
+  ma_code             VARCHAR(50)   NOT NULL UNIQUE,
+  ten_voucher         VARCHAR(150)  NOT NULL,
+  mo_ta               TEXT          NULL,
+  loai_giam           ENUM('percent','fixed_amount') NOT NULL,
+  gia_tri_giam        DECIMAL(15,2) NOT NULL,
+  giam_toi_da         DECIMAL(15,2) NULL    COMMENT 'Giam toi da (cho loai percent)',
+  don_hang_toi_thieu  DECIMAL(15,2) NOT NULL DEFAULT 0,
+  so_lan_toi_da       INT           NOT NULL DEFAULT 1,
+  da_su_dung          INT           NOT NULL DEFAULT 0,
+  gioi_han_moi_nguoi  INT           NOT NULL DEFAULT 1,
+  trang_thai          TINYINT(1)    NOT NULL DEFAULT 1,
+  ngay_bat_dau        DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  ngay_het_han        DATETIME      NOT NULL DEFAULT '2099-12-31 23:59:59',
+  ngay_tao            DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_ma_code    (ma_code),
+  INDEX idx_trang_thai (trang_thai),
+  INDEX idx_het_han    (ngay_het_han)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Bang quan ly ma giam gia / voucher';
 
 -- ============================================================
--- 10. BANG LICH SU SU DUNG VOUCHER (VOUCHER_USAGES)
+-- 10. BANG LICH SU SU DUNG VOUCHER
 -- ============================================================
-CREATE TABLE IF NOT EXISTS voucher_usages (
-  id               INT AUTO_INCREMENT PRIMARY KEY,
-  voucher_id       INT           NOT NULL,
-  user_id          INT           NOT NULL,
-  order_id         INT           NULL,
-  discount_applied DECIMAL(15,2) NOT NULL,
-  used_at          TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (voucher_id) REFERENCES vouchers(id) ON DELETE CASCADE,
-  FOREIGN KEY (user_id)    REFERENCES users(id)    ON DELETE CASCADE,
-  INDEX idx_voucher_id (voucher_id),
-  INDEX idx_user_id    (user_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE lich_su_voucher (
+  ma_lich_su      INT AUTO_INCREMENT PRIMARY KEY,
+  ma_voucher      INT           NOT NULL,
+  ma_nguoi_dung   INT           NOT NULL,
+  ma_don_hang     INT           NULL,
+  so_tien_giam    DECIMAL(15,2) NOT NULL,
+  ngay_su_dung    TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (ma_voucher)    REFERENCES ma_giam_gia(ma_voucher)        ON DELETE CASCADE,
+  FOREIGN KEY (ma_nguoi_dung) REFERENCES nguoi_dung(ma_nguoi_dung)      ON DELETE CASCADE,
+  INDEX idx_voucher    (ma_voucher),
+  INDEX idx_nguoi_dung (ma_nguoi_dung)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Lich su nguoi dung su dung ma giam gia';
 
 -- ============================================================
--- 11. BANG DON HANG (ORDERS)
+-- 11. BANG DON HANG
 -- ============================================================
-CREATE TABLE IF NOT EXISTS orders (
-  id                   INT AUTO_INCREMENT PRIMARY KEY,
-  user_id              INT           NOT NULL,
-  order_code           VARCHAR(50)   NOT NULL UNIQUE,
-  subtotal             DECIMAL(15,2) NOT NULL,
-  discount_amount      DECIMAL(15,2) NOT NULL DEFAULT 0,
-  shipping_fee         DECIMAL(15,2) NOT NULL DEFAULT 0,
-  total_amount         DECIMAL(15,2) NOT NULL,
-  voucher_id           INT           NULL,
-  loyalty_points_used  INT           NOT NULL DEFAULT 0,
-  loyalty_points_earned INT          NOT NULL DEFAULT 0,
-  status               ENUM('pending','confirmed','shipping','delivered','cancelled','refunded') NOT NULL DEFAULT 'pending',
-  payment_method       ENUM('cod','bank_transfer','momo','loyalty_points') NOT NULL DEFAULT 'cod',
-  payment_status       ENUM('unpaid','paid','refunded') NOT NULL DEFAULT 'unpaid',
-  receiver_name        VARCHAR(100)  NOT NULL,
-  receiver_phone       VARCHAR(20)   NOT NULL,
-  shipping_address     TEXT          NOT NULL,
-  note                 TEXT          NULL,
-  created_at           TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at           TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id)    REFERENCES users(id)    ON DELETE RESTRICT,
-  FOREIGN KEY (voucher_id) REFERENCES vouchers(id) ON DELETE SET NULL,
-  INDEX idx_user_id    (user_id),
-  INDEX idx_order_code (order_code),
-  INDEX idx_status     (status),
-  INDEX idx_created_at (created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE don_hang (
+  ma_don_hang       INT AUTO_INCREMENT PRIMARY KEY,
+  ma_nguoi_dung     INT           NOT NULL,
+  ma_code           VARCHAR(50)   NOT NULL UNIQUE,
+  tam_tinh          DECIMAL(15,2) NOT NULL,
+  so_tien_giam      DECIMAL(15,2) NOT NULL DEFAULT 0,
+  phi_van_chuyen    DECIMAL(15,2) NOT NULL DEFAULT 0,
+  tong_tien         DECIMAL(15,2) NOT NULL,
+  ma_voucher        INT           NULL,
+  diem_su_dung      INT           NOT NULL DEFAULT 0,
+  diem_tich_duoc    INT           NOT NULL DEFAULT 0,
+  trang_thai        ENUM('cho_xac_nhan','da_xac_nhan','dang_giao','da_giao','da_huy','hoan_tien')
+                    NOT NULL DEFAULT 'cho_xac_nhan',
+  phuong_thuc_tt    ENUM('tien_mat','chuyen_khoan','momo','diem_tich_luy')
+                    NOT NULL DEFAULT 'tien_mat',
+  trang_thai_tt     ENUM('chua_tt','da_tt','da_hoan_tien') NOT NULL DEFAULT 'chua_tt',
+  ten_nguoi_nhan    VARCHAR(100)  NOT NULL,
+  sdt_nguoi_nhan    VARCHAR(20)   NOT NULL,
+  dia_chi_giao_hang TEXT          NOT NULL,
+  ghi_chu           TEXT          NULL,
+  ngay_tao          TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  ngay_cap_nhat     TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (ma_nguoi_dung) REFERENCES nguoi_dung(ma_nguoi_dung)   ON DELETE RESTRICT,
+  FOREIGN KEY (ma_voucher)    REFERENCES ma_giam_gia(ma_voucher)      ON DELETE SET NULL,
+  INDEX idx_nguoi_dung (ma_nguoi_dung),
+  INDEX idx_ma_code    (ma_code),
+  INDEX idx_trang_thai (trang_thai),
+  INDEX idx_ngay_tao   (ngay_tao)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Bang don hang cua khach hang';
 
 -- ============================================================
--- 12. BANG CHI TIET DON HANG (ORDER_ITEMS)
+-- 12. BANG CHI TIET DON HANG
 -- ============================================================
-CREATE TABLE IF NOT EXISTS order_items (
-  id                INT AUTO_INCREMENT PRIMARY KEY,
-  order_id          INT           NOT NULL,
-  product_id        INT           NOT NULL,
-  product_name      VARCHAR(200)  NOT NULL,
-  product_thumbnail VARCHAR(255)  NULL,
-  unit_price        DECIMAL(15,2) NOT NULL,
-  quantity          INT           NOT NULL,
-  subtotal          DECIMAL(15,2) NOT NULL,
-  FOREIGN KEY (order_id)   REFERENCES orders(id)   ON DELETE CASCADE,
-  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE RESTRICT,
-  INDEX idx_order_id   (order_id),
-  INDEX idx_product_id (product_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE chi_tiet_don_hang (
+  ma_chi_tiet     INT AUTO_INCREMENT PRIMARY KEY,
+  ma_don_hang     INT           NOT NULL,
+  ma_san_pham     INT           NOT NULL,
+  ten_san_pham    VARCHAR(200)  NOT NULL,
+  anh_san_pham    VARCHAR(255)  NULL,
+  don_gia         DECIMAL(15,2) NOT NULL,
+  so_luong        INT           NOT NULL,
+  thanh_tien      DECIMAL(15,2) NOT NULL,
+  FOREIGN KEY (ma_don_hang) REFERENCES don_hang(ma_don_hang)   ON DELETE CASCADE,
+  FOREIGN KEY (ma_san_pham) REFERENCES san_pham(ma_san_pham)   ON DELETE RESTRICT,
+  INDEX idx_don_hang  (ma_don_hang),
+  INDEX idx_san_pham  (ma_san_pham)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Chi tiet san pham trong don hang';
 
 -- ============================================================
--- 13. BANG DANH GIA SAN PHAM (REVIEWS)
+-- 13. BANG DANH GIA SAN PHAM
 -- ============================================================
-CREATE TABLE IF NOT EXISTS reviews (
-  id            INT AUTO_INCREMENT PRIMARY KEY,
-  user_id       INT          NOT NULL,
-  product_id    INT          NOT NULL,
-  order_item_id INT          NULL,
-  rating        TINYINT(1)  NOT NULL CHECK (rating BETWEEN 1 AND 5),
-  comment       TEXT         NULL,
-  is_approved   TINYINT(1)  NOT NULL DEFAULT 0,
-  created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id)       REFERENCES users(id)        ON DELETE CASCADE,
-  FOREIGN KEY (product_id)    REFERENCES products(id)     ON DELETE CASCADE,
-  FOREIGN KEY (order_item_id) REFERENCES order_items(id)  ON DELETE SET NULL,
-  UNIQUE KEY uq_user_product_order (user_id, product_id, order_item_id),
-  INDEX idx_product_id  (product_id),
-  INDEX idx_is_approved (is_approved)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE danh_gia (
+  ma_danh_gia         INT AUTO_INCREMENT PRIMARY KEY,
+  ma_nguoi_dung       INT          NOT NULL,
+  ma_san_pham         INT          NOT NULL,
+  ma_chi_tiet_dh      INT          NULL,
+  so_sao              TINYINT(1)   NOT NULL CHECK (so_sao BETWEEN 1 AND 5),
+  binh_luan           TEXT         NULL,
+  da_duyet            TINYINT(1)   NOT NULL DEFAULT 0,
+  ngay_tao            TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (ma_nguoi_dung)  REFERENCES nguoi_dung(ma_nguoi_dung)        ON DELETE CASCADE,
+  FOREIGN KEY (ma_san_pham)    REFERENCES san_pham(ma_san_pham)            ON DELETE CASCADE,
+  FOREIGN KEY (ma_chi_tiet_dh) REFERENCES chi_tiet_don_hang(ma_chi_tiet)  ON DELETE SET NULL,
+  UNIQUE KEY uq_nguoi_sp_dh (ma_nguoi_dung, ma_san_pham, ma_chi_tiet_dh),
+  INDEX idx_san_pham (ma_san_pham),
+  INDEX idx_da_duyet (da_duyet)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Danh gia va binh luan cua nguoi dung ve san pham';
 
 -- ============================================================
--- 14. BANG SAN PHAM YEU THICH (WISHLISTS)
+-- 14. BANG SAN PHAM YEU THICH (WISHLIST)
 -- ============================================================
-CREATE TABLE IF NOT EXISTS wishlists (
-  id         INT AUTO_INCREMENT PRIMARY KEY,
-  user_id    INT       NOT NULL,
-  product_id INT       NOT NULL,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id)    REFERENCES users(id)    ON DELETE CASCADE,
-  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
-  UNIQUE KEY uq_user_product (user_id, product_id),
-  INDEX idx_user_id (user_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE yeu_thich (
+  ma_yeu_thich    INT AUTO_INCREMENT PRIMARY KEY,
+  ma_nguoi_dung   INT       NOT NULL,
+  ma_san_pham     INT       NOT NULL,
+  ngay_them       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (ma_nguoi_dung) REFERENCES nguoi_dung(ma_nguoi_dung) ON DELETE CASCADE,
+  FOREIGN KEY (ma_san_pham)   REFERENCES san_pham(ma_san_pham)     ON DELETE CASCADE,
+  UNIQUE KEY uq_nguoi_sp (ma_nguoi_dung, ma_san_pham),
+  INDEX idx_nguoi_dung (ma_nguoi_dung)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Danh sach san pham yeu thich cua nguoi dung';
 
 -- ============================================================
--- 15. BANG YEU CAU BAO HANH (WARRANTY_REQUESTS)
+-- 15. BANG YEU CAU BAO HANH
 -- ============================================================
-CREATE TABLE IF NOT EXISTS warranty_requests (
-  id                  INT AUTO_INCREMENT PRIMARY KEY,
-  user_id             INT          NOT NULL,
-  order_item_id       INT          NOT NULL,
-  serial_number       VARCHAR(100) NULL,
-  issue_description   TEXT         NOT NULL,
-  status              ENUM('pending','processing','completed','rejected') NOT NULL DEFAULT 'pending',
-  assigned_staff_id   INT          NULL,
-  resolution_note     TEXT         NULL,
-  received_at         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  completed_at        DATETIME     NULL DEFAULT NULL,
-  FOREIGN KEY (user_id)           REFERENCES users(id)        ON DELETE RESTRICT,
-  FOREIGN KEY (order_item_id)     REFERENCES order_items(id)  ON DELETE RESTRICT,
-  FOREIGN KEY (assigned_staff_id) REFERENCES users(id)        ON DELETE SET NULL,
-  INDEX idx_user_id (user_id),
-  INDEX idx_status  (status)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE yeu_cau_bao_hanh (
+  ma_bao_hanh         INT AUTO_INCREMENT PRIMARY KEY,
+  ma_nguoi_dung       INT          NOT NULL,
+  ma_chi_tiet_dh      INT          NOT NULL,
+  so_serial           VARCHAR(100) NULL,
+  mo_ta_su_co         TEXT         NOT NULL,
+  trang_thai          ENUM('cho_xu_ly','dang_xu_ly','hoan_thanh','tu_choi')
+                      NOT NULL DEFAULT 'cho_xu_ly',
+  ma_nhan_vien_xu_ly  INT          NULL,
+  ghi_chu_xu_ly       TEXT         NULL,
+  ngay_tiep_nhan      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  ngay_hoan_thanh     DATETIME     NULL,
+  FOREIGN KEY (ma_nguoi_dung)      REFERENCES nguoi_dung(ma_nguoi_dung)             ON DELETE RESTRICT,
+  FOREIGN KEY (ma_chi_tiet_dh)     REFERENCES chi_tiet_don_hang(ma_chi_tiet)        ON DELETE RESTRICT,
+  FOREIGN KEY (ma_nhan_vien_xu_ly) REFERENCES nguoi_dung(ma_nguoi_dung)             ON DELETE SET NULL,
+  INDEX idx_nguoi_dung (ma_nguoi_dung),
+  INDEX idx_trang_thai (trang_thai)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Yeu cau bao hanh san pham cua khach hang';
 
 -- ============================================================
--- 16. BANG LICH SU KHO HANG (INVENTORY_LOGS)
+-- 16. BANG LICH SU KHO HANG
 -- ============================================================
-CREATE TABLE IF NOT EXISTS inventory_logs (
-  id              INT AUTO_INCREMENT PRIMARY KEY,
-  product_id      INT          NOT NULL,
-  user_id         INT          NULL,
-  quantity_change INT          NOT NULL,
-  stock_before    INT          NOT NULL,
-  stock_after     INT          NOT NULL,
-  type            ENUM('import','export','adjustment','return') NOT NULL,
-  note            TEXT         NULL,
-  reference_code  VARCHAR(100) NULL,
-  created_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
-  FOREIGN KEY (user_id)    REFERENCES users(id)    ON DELETE SET NULL,
-  INDEX idx_product_id (product_id),
-  INDEX idx_type       (type),
-  INDEX idx_created_at (created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE lich_su_kho (
+  ma_lich_su          INT AUTO_INCREMENT PRIMARY KEY,
+  ma_san_pham         INT          NOT NULL,
+  ma_nguoi_dung       INT          NULL,
+  so_luong_bien_dong  INT          NOT NULL,
+  ton_kho_truoc       INT          NOT NULL,
+  ton_kho_sau         INT          NOT NULL,
+  loai_giao_dich      ENUM('nhap','xuat','dieu_chinh','hoan_tra') NOT NULL,
+  ghi_chu             TEXT         NULL,
+  ma_tham_chieu       VARCHAR(100) NULL,
+  ngay_tao            TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (ma_san_pham)   REFERENCES san_pham(ma_san_pham)     ON DELETE CASCADE,
+  FOREIGN KEY (ma_nguoi_dung) REFERENCES nguoi_dung(ma_nguoi_dung) ON DELETE SET NULL,
+  INDEX idx_san_pham   (ma_san_pham),
+  INDEX idx_loai       (loai_giao_dich),
+  INDEX idx_ngay_tao   (ngay_tao)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Lich su bien dong ton kho san pham';
 
 -- ============================================================
--- 17. BANG THONG BAO (NOTIFICATIONS)
+-- 17. BANG THONG BAO
 -- ============================================================
-CREATE TABLE IF NOT EXISTS notifications (
-  id         INT AUTO_INCREMENT PRIMARY KEY,
-  user_id    INT          NOT NULL,
-  title      VARCHAR(200) NOT NULL,
-  content    TEXT         NOT NULL,
-  type       VARCHAR(50)  NULL COMMENT 'order, warranty, system, promotion',
-  is_read    TINYINT(1)  NOT NULL DEFAULT 0,
-  ref_id     VARCHAR(50)  NULL,
-  created_at TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-  INDEX idx_user_id  (user_id),
-  INDEX idx_is_read  (is_read),
-  INDEX idx_created_at (created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE thong_bao (
+  ma_thong_bao    INT AUTO_INCREMENT PRIMARY KEY,
+  ma_nguoi_dung   INT          NOT NULL,
+  tieu_de         VARCHAR(200) NOT NULL,
+  noi_dung        TEXT         NOT NULL,
+  loai            VARCHAR(50)  NULL COMMENT 'don_hang, bao_hanh, he_thong, khuyen_mai',
+  da_doc          TINYINT(1)   NOT NULL DEFAULT 0,
+  ma_tham_chieu   VARCHAR(50)  NULL,
+  ngay_tao        TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (ma_nguoi_dung) REFERENCES nguoi_dung(ma_nguoi_dung) ON DELETE CASCADE,
+  INDEX idx_nguoi_dung (ma_nguoi_dung),
+  INDEX idx_da_doc     (da_doc),
+  INDEX idx_ngay_tao   (ngay_tao)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Thong bao gui den nguoi dung';

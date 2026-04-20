@@ -1,133 +1,154 @@
 const router = require('express').Router();
-const { verifyToken } = require('../middleware/auth');
-const authorize = require('../middleware/authorize');
+const { verifyToken, requireAdmin, requireStaff } = require('../middleware/auth');
 const {
   getDashboardOverview, getRevenueReport, getInventoryReport,
   getAllOrders, updateOrderStatus,
   getVouchers, createVoucher, updateVoucher,
   getUsers, toggleUserStatus,
+  getInventory, adjustInventory,
 } = require('../controllers/adminController');
 const { createProduct, updateProduct, deleteProduct } = require('../controllers/productController');
+const db = require('../config/database');
+const slugify = require('slugify');
 
 // Tất cả admin routes yêu cầu đăng nhập
 router.use(verifyToken);
 
 // ─── DASHBOARD ────────────────────────────────────────────────
-router.get('/dashboard',  authorize('admin','staff'), getDashboardOverview);
+router.get('/dashboard', requireStaff, getDashboardOverview);
 
 // ─── REPORTS ─────────────────────────────────────────────────
-router.get('/reports/revenue',   authorize('admin'),         getRevenueReport);
-router.get('/reports/inventory', authorize('admin','staff'), getInventoryReport);
+router.get('/reports/revenue',   requireAdmin, getRevenueReport);
+router.get('/reports/inventory', requireStaff, getInventoryReport);
 
-// ─── PRODUCTS (admin only) ────────────────────────────────────
-router.post  ('/products',     authorize('admin'), createProduct);
-router.put   ('/products/:id', authorize('admin'), updateProduct);
-router.delete('/products/:id', authorize('admin'), deleteProduct);
+// ─── PRODUCTS ────────────────────────────────────────────────
+router.post  ('/products',     requireAdmin, createProduct);
+router.put   ('/products/:id', requireAdmin, updateProduct);
+router.delete('/products/:id', requireAdmin, deleteProduct);
 
-// ─── CATEGORIES ──────────────────────────────────────────────
-const db = require('../config/database');
-const slugify = require('slugify');
-
-router.get('/categories', authorize('admin','staff'), async (req, res, next) => {
+// ─── DANH MUC (CATEGORIES) ───────────────────────────────────
+router.get('/categories', requireStaff, async (req, res, next) => {
   try {
-    const [rows] = await db.query('SELECT * FROM categories ORDER BY sort_order, name');
+    const [rows] = await db.query(
+      `SELECT ma_danh_muc AS id, ten_danh_muc AS name, duong_dan AS slug,
+              mo_ta AS description, ma_danh_muc_cha AS parent_id,
+              trang_thai AS is_active, thu_tu AS sort_order
+       FROM danh_muc ORDER BY thu_tu, ten_danh_muc`
+    );
     res.json({ success: true, data: rows });
   } catch (err) { next(err); }
 });
 
-router.post('/categories', authorize('admin'), async (req, res, next) => {
+router.post('/categories', requireAdmin, async (req, res, next) => {
   try {
     const { name, description, parent_id, sort_order } = req.body;
     const slug = slugify(name, { lower: true, strict: true }) + '-' + Date.now();
     const [r] = await db.query(
-      'INSERT INTO categories (name, slug, description, parent_id, sort_order) VALUES (?, ?, ?, ?, ?)',
+      `INSERT INTO danh_muc (ten_danh_muc, duong_dan, mo_ta, ma_danh_muc_cha, thu_tu)
+       VALUES (?, ?, ?, ?, ?)`,
       [name, slug, description, parent_id || null, sort_order || 0]
     );
     res.status(201).json({ success: true, data: { id: r.insertId } });
   } catch (err) { next(err); }
 });
 
-router.put('/categories/:id', authorize('admin'), async (req, res, next) => {
+router.put('/categories/:id', requireAdmin, async (req, res, next) => {
   try {
     const { name, description, parent_id, sort_order, is_active } = req.body;
     await db.query(
-      'UPDATE categories SET name=?, description=?, parent_id=?, sort_order=?, is_active=? WHERE id=?',
+      `UPDATE danh_muc SET ten_danh_muc=?, mo_ta=?, ma_danh_muc_cha=?, thu_tu=?, trang_thai=?
+       WHERE ma_danh_muc=?`,
       [name, description, parent_id || null, sort_order, is_active ? 1 : 0, req.params.id]
     );
     res.json({ success: true, message: 'Cập nhật danh mục thành công!' });
   } catch (err) { next(err); }
 });
 
-// ─── ORDERS ──────────────────────────────────────────────────
-router.get('/orders',           authorize('admin','staff'), getAllOrders);
-router.patch('/orders/:id/status', authorize('admin','staff'), updateOrderStatus);
+// ─── DON HANG (ORDERS) ────────────────────────────────────────
+router.get   ('/orders',              requireStaff, getAllOrders);
+router.patch ('/orders/:id/status',   requireStaff, updateOrderStatus);
 
-// ─── VOUCHERS ────────────────────────────────────────────────
-router.get  ('/vouchers',     authorize('admin'),         getVouchers);
-router.post ('/vouchers',     authorize('admin'),         createVoucher);
-router.put  ('/vouchers/:id', authorize('admin'),         updateVoucher);
-router.delete('/vouchers/:id', authorize('admin'), async (req,res,next) => {
+// ─── MA GIAM GIA (VOUCHERS) ──────────────────────────────────
+router.get   ('/vouchers',     requireAdmin, getVouchers);
+router.post  ('/vouchers',     requireAdmin, createVoucher);
+router.put   ('/vouchers/:id', requireAdmin, updateVoucher);
+router.delete('/vouchers/:id', requireAdmin, async (req, res, next) => {
   try {
-    await db.query('UPDATE vouchers SET is_active = 0 WHERE id = ?', [req.params.id]);
+    await db.query('UPDATE ma_giam_gia SET trang_thai = 0 WHERE ma_voucher = ?', [req.params.id]);
     res.json({ success: true, message: 'Đã vô hiệu hóa voucher' });
   } catch (err) { next(err); }
 });
 
-// ─── USERS ───────────────────────────────────────────────────
-router.get('/users',              authorize('admin'), getUsers);
-router.patch('/users/:id/toggle', authorize('admin'), toggleUserStatus);
+// ─── NGUOI DUNG (USERS) ───────────────────────────────────────
+router.get   ('/users',               requireAdmin, getUsers);
+router.patch ('/users/:id/toggle',    requireAdmin, toggleUserStatus);
 
-// ─── WARRANTY ────────────────────────────────────────────────
-router.get('/warranty', authorize('admin','staff'), async (req, res, next) => {
+// ─── BAO HANH (WARRANTY) ─────────────────────────────────────
+router.get('/warranty', requireStaff, async (req, res, next) => {
   try {
     const { status } = req.query;
     let where = 'WHERE 1=1';
     const params = [];
-    if (status) { where += ' AND wr.status = ?'; params.push(status); }
+    if (status) { where += ' AND ycbh.trang_thai = ?'; params.push(status); }
 
     const [items] = await db.query(
-      `SELECT wr.*, oi.product_name, oi.product_thumbnail,
-              u.name as customer_name, u.phone,
-              s.name as staff_name
-       FROM warranty_requests wr
-       JOIN order_items oi ON oi.id = wr.order_item_id
-       JOIN users u ON u.id = wr.user_id
-       LEFT JOIN users s ON s.id = wr.assigned_staff_id
-       ${where} ORDER BY wr.received_at DESC`,
+      `SELECT ycbh.ma_bao_hanh AS id, ycbh.so_serial, ycbh.mo_ta_su_co AS issue_description,
+              ycbh.trang_thai AS status, ycbh.ghi_chu_xu_ly AS resolution_note,
+              ycbh.ngay_tiep_nhan AS received_at, ycbh.ngay_hoan_thanh AS completed_at,
+              ctdh.ten_san_pham AS product_name, ctdh.anh_san_pham AS product_thumbnail,
+              nd.ho_ten AS customer_name, nd.so_dien_thoai AS phone,
+              nv.ho_ten AS staff_name
+       FROM yeu_cau_bao_hanh ycbh
+       JOIN chi_tiet_don_hang ctdh ON ctdh.ma_chi_tiet  = ycbh.ma_chi_tiet_dh
+       JOIN nguoi_dung nd          ON nd.ma_nguoi_dung  = ycbh.ma_nguoi_dung
+       LEFT JOIN nguoi_dung nv     ON nv.ma_nguoi_dung  = ycbh.ma_nhan_vien_xu_ly
+       ${where} ORDER BY ycbh.ngay_tiep_nhan DESC`,
       params
     );
     res.json({ success: true, data: items });
   } catch (err) { next(err); }
 });
 
-router.patch('/warranty/:id/status', authorize('admin','staff'), async (req, res, next) => {
+router.patch('/warranty/:id/status', requireStaff, async (req, res, next) => {
   try {
     const { status, resolution_note } = req.body;
+    const validStatuses = ['cho_xu_ly','dang_xu_ly','hoan_thanh','tu_choi'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ success: false, message: 'Trạng thái không hợp lệ' });
+    }
     await db.query(
-      'UPDATE warranty_requests SET status=?, resolution_note=?, assigned_staff_id=?, completed_at=? WHERE id=?',
-      [status, resolution_note, req.user.id, status === 'completed' ? new Date() : null, req.params.id]
+      `UPDATE yeu_cau_bao_hanh SET trang_thai=?, ghi_chu_xu_ly=?,
+              ma_nhan_vien_xu_ly=?, ngay_hoan_thanh=?
+       WHERE ma_bao_hanh=?`,
+      [status, resolution_note, req.user.id, status === 'hoan_thanh' ? new Date() : null, req.params.id]
     );
     res.json({ success: true, message: 'Cập nhật bảo hành thành công!' });
   } catch (err) { next(err); }
 });
 
-// ─── INVENTORY ───────────────────────────────────────────────
-router.get('/inventory/logs', authorize('admin','staff'), async (req, res, next) => {
+// ─── KHO HANG (INVENTORY) ─────────────────────────────────────
+router.get('/inventory', requireStaff, getInventory);
+
+router.get('/inventory/logs', requireStaff, async (req, res, next) => {
   try {
     const { product_id, type, page = 1, limit = 20 } = req.query;
     const offset = (page - 1) * limit;
     let where = 'WHERE 1 = 1';
     const params = [];
-    if (product_id) { where += ' AND il.product_id = ?'; params.push(product_id); }
-    if (type) { where += ' AND il.type = ?'; params.push(type); }
+    if (product_id) { where += ' AND lsk.ma_san_pham = ?'; params.push(product_id); }
+    if (type) { where += ' AND lsk.loai_giao_dich = ?'; params.push(type); }
 
     const [logs] = await db.query(
-      `SELECT il.*, p.name as product_name, u.name as user_name
-       FROM inventory_logs il
-       JOIN products p ON p.id = il.product_id
-       LEFT JOIN users u ON u.id = il.user_id
+      `SELECT lsk.ma_lich_su AS id, lsk.so_luong_bien_dong AS quantity_change,
+              lsk.ton_kho_truoc AS stock_before, lsk.ton_kho_sau AS stock_after,
+              lsk.loai_giao_dich AS type, lsk.ghi_chu AS note,
+              lsk.ma_tham_chieu AS reference_code, lsk.ngay_tao AS created_at,
+              sp.ten_san_pham AS product_name, nd.ho_ten AS user_name
+       FROM lich_su_kho lsk
+       JOIN san_pham sp     ON sp.ma_san_pham   = lsk.ma_san_pham
+       LEFT JOIN nguoi_dung nd ON nd.ma_nguoi_dung = lsk.ma_nguoi_dung
        ${where}
-       ORDER BY il.created_at DESC
+       ORDER BY lsk.ngay_tao DESC
        LIMIT ? OFFSET ?`,
       [...params, parseInt(limit), offset]
     );
@@ -135,58 +156,64 @@ router.get('/inventory/logs', authorize('admin','staff'), async (req, res, next)
   } catch (err) { next(err); }
 });
 
-// Nhập kho thủ công
-router.post('/inventory/import', authorize('admin','staff'), async (req, res, next) => {
+router.post('/inventory/import', requireStaff, async (req, res, next) => {
   try {
     const { product_id, quantity, note } = req.body;
     if (!product_id || !quantity || quantity < 1) {
-      return res.status(400).json({ success:false, message: 'Thiếu thông tin' });
+      return res.status(400).json({ success: false, message: 'Thiếu thông tin' });
     }
 
-    const [p] = await db.query('SELECT stock_quantity FROM products WHERE id = ?', [product_id]);
-    if (!p.length) return res.status(404).json({ success:false, message: 'Không tìm thấy sản phẩm' });
+    const [p] = await db.query(
+      'SELECT so_luong_ton AS stock_quantity FROM san_pham WHERE ma_san_pham = ?', [product_id]
+    );
+    if (!p.length) return res.status(404).json({ success: false, message: 'Không tìm thấy sản phẩm' });
 
     const stockBefore = p[0].stock_quantity;
-    const stockAfter = stockBefore + parseInt(quantity);
+    const stockAfter  = stockBefore + parseInt(quantity);
 
-    await db.query('UPDATE products SET stock_quantity = ? WHERE id = ?', [stockAfter, product_id]);
+    await db.query('UPDATE san_pham SET so_luong_ton = ? WHERE ma_san_pham = ?', [stockAfter, product_id]);
     await db.query(
-      `INSERT INTO inventory_logs (product_id, user_id, quantity_change, stock_before, stock_after, type, note)
-       VALUES (?, ?, ?, ?, ?, 'import', ?)`,
+      `INSERT INTO lich_su_kho (ma_san_pham, ma_nguoi_dung, so_luong_bien_dong, ton_kho_truoc, ton_kho_sau, loai_giao_dich, ghi_chu)
+       VALUES (?, ?, ?, ?, ?, 'nhap', ?)`,
       [product_id, req.user.id, quantity, stockBefore, stockAfter, note || 'Nhập kho thủ công']
     );
 
-    res.json({ success:true, message: `Nhập kho thành công! Số lượng mới: ${stockAfter}` });
+    res.json({ success: true, message: `Nhập kho thành công! Số lượng mới: ${stockAfter}` });
   } catch (err) { next(err); }
 });
 
-// ─── REVIEWS APPROVAL ────────────────────────────────────────
-router.get('/reviews', authorize('admin'), async (req, res, next) => {
+// ─── DANH GIA (REVIEWS) ───────────────────────────────────────
+router.get('/reviews', requireAdmin, async (req, res, next) => {
   try {
     const { is_approved } = req.query;
     let where = 'WHERE 1=1';
     const params = [];
-    if (is_approved !== undefined) { where += ' AND r.is_approved = ?'; params.push(is_approved); }
+    if (is_approved !== undefined) { where += ' AND dg.da_duyet = ?'; params.push(is_approved); }
 
     const [reviews] = await db.query(
-      `SELECT r.*, u.name as user_name, p.name as product_name
-       FROM reviews r JOIN users u ON u.id=r.user_id JOIN products p ON p.id=r.product_id
-       ${where} ORDER BY r.created_at DESC`,
+      `SELECT dg.ma_danh_gia AS id, dg.so_sao AS rating, dg.binh_luan AS comment,
+              dg.da_duyet AS is_approved, dg.ngay_tao AS created_at,
+              nd.ho_ten AS user_name, sp.ten_san_pham AS product_name
+       FROM danh_gia dg
+       JOIN nguoi_dung nd ON nd.ma_nguoi_dung = dg.ma_nguoi_dung
+       JOIN san_pham sp   ON sp.ma_san_pham   = dg.ma_san_pham
+       ${where} ORDER BY dg.ngay_tao DESC`,
       params
     );
     res.json({ success: true, data: reviews });
   } catch (err) { next(err); }
 });
 
-router.patch('/reviews/:id/approve', authorize('admin'), async (req, res, next) => {
+router.patch('/reviews/:id/approve', requireAdmin, async (req, res, next) => {
   try {
-    await db.query('UPDATE reviews SET is_approved = 1 WHERE id = ?', [req.params.id]);
-    // Cập nhật avg_rating
-    const [r] = await db.query('SELECT product_id FROM reviews WHERE id = ?', [req.params.id]);
+    await db.query('UPDATE danh_gia SET da_duyet = 1 WHERE ma_danh_gia = ?', [req.params.id]);
+    const [r] = await db.query('SELECT ma_san_pham FROM danh_gia WHERE ma_danh_gia = ?', [req.params.id]);
     if (r.length) {
       await db.query(
-        'UPDATE products SET avg_rating = (SELECT AVG(rating) FROM reviews WHERE product_id = ? AND is_approved = 1) WHERE id = ?',
-        [r[0].product_id, r[0].product_id]
+        `UPDATE san_pham SET danh_gia_tb = (
+           SELECT AVG(so_sao) FROM danh_gia WHERE ma_san_pham = ? AND da_duyet = 1
+         ) WHERE ma_san_pham = ?`,
+        [r[0].ma_san_pham, r[0].ma_san_pham]
       );
     }
     res.json({ success: true, message: 'Đã duyệt đánh giá!' });
