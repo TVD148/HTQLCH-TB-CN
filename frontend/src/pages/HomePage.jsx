@@ -230,25 +230,24 @@ export default function HomePage() {
               </div>
               <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.15)' }} />
               <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Kết thúc sau:</span>
-              {/* Countdown */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {/* Countdown with aligned labels */}
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
                 {[hH, hM, hS].map((v, i) => (
-                  <>
-                    <div key={i} style={{
+                  <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                    <div style={{
                       minWidth: 44, padding: '6px 10px', background: '#ef4444',
                       borderRadius: 8, textAlign: 'center',
                       fontSize: '1.1rem', fontWeight: 900, color: '#fff',
                       fontVariantNumeric: 'tabular-nums',
                       boxShadow: '0 2px 8px rgba(239,68,68,0.5)',
                     }}>{v}</div>
-                    {i < 2 && <span style={{ color: '#ef4444', fontWeight: 900, fontSize: '1.1rem' }}>:</span>}
-                  </>
+                    <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', letterSpacing: 0.5, fontWeight: 600 }}>
+                      {['GIỜ', 'PHÚT', 'GIÂY'][i]}
+                    </span>
+                    {i < 2 && <span style={{ position: 'absolute', top: 6, fontSize: '1.1rem', color: '#ef4444', fontWeight: 900 }}></span>}
+                  </div>
                 ))}
-              </div>
-              <div style={{ display: 'flex', gap: 6, marginLeft: 'auto', fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                {['GIỜ', 'PHÚT', 'GIÂY'].map((l, i) => (
-                  <span key={i} style={{ minWidth: 44, textAlign: 'center' }}>{l}</span>
-                ))}
+                {/* colon separators */}
               </div>
               <Link to="/shop?sort=price_desc" className="btn btn-sm" style={{
                 background: '#ef4444', color: '#fff', border: 'none',
@@ -278,57 +277,89 @@ export default function HomePage() {
       {publicVouchers.length > 0 && (
         <section className="section-sm" style={{ paddingTop: 0 }}>
           <div className="container">
-            <div style={{ background: '#fff', padding: '24px 32px', borderRadius: 'var(--radius-xl)', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
-              <h2 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: 20 }}>Mã giảm giá</h2>
+            <div style={{
+              background: 'var(--surface-2)',
+              border: '1px solid var(--border)',
+              padding: '24px 28px', borderRadius: 'var(--radius-xl)',
+            }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: 20, color: 'var(--text-primary)' }}>🏷️ Mã giảm giá</h2>
               <div style={{
-                display: 'flex', gap: 20, overflowX: 'auto', paddingBottom: 12,
+                display: 'flex', gap: 16, overflowX: 'auto', paddingBottom: 8,
                 scrollBehavior: 'smooth', msOverflowStyle: 'none', scrollbarWidth: 'none'
               }}>
                 {publicVouchers.map(v => {
                   let discountTitle = '';
-                  if (v.discount_type === 'percent') discountTitle = `GIẢM ${v.discount_value}%`;
-                  else if (v.discount_type === 'freeship') discountTitle = 'MIỄN SHIP';
-                  else discountTitle = `GIẢM ${fmt(v.discount_value).replace(/\s?₫/, 'Đ')}`;
+                  let subLabel = '';
+                  const isFree = v.discount_type === 'freeship';
+                  const isPct  = v.discount_type === 'percent';
+                  if (isPct)   { discountTitle = `GIẢM ${v.discount_value}%`; subLabel = v.max_discount_amount ? `Tối đa ${fmt(v.max_discount_amount)}` : ''; }
+                  else if (isFree) { discountTitle = 'MIỄN SHIP'; subLabel = 'Freeship toàn quốc'; }
+                  else { discountTitle = `GIẢM ${fmt(v.discount_value).replace(/\s?₫/,'Đ')}`; subLabel = ''; }
+
+                  const accentColor = isFree ? 'var(--emerald)' : 'var(--accent)';
+                  const accentHex   = isFree ? '#10B981'         : '#3B82F6';
 
                   return (
                     <div key={v.id} style={{
-                      display: 'flex', minWidth: 320, maxWidth: 360,
-                      background: '#f4f4f4', borderRadius: 8, overflow: 'hidden', flexShrink: 0
-                    }}>
-                      {/* Left: Red Card */}
+                      display: 'flex', minWidth: 300, maxWidth: 340, flexShrink: 0,
+                      background: 'var(--surface-1)',
+                      border: `1px solid ${accentHex}33`,
+                      borderRadius: 12, overflow: 'hidden',
+                      transition: 'box-shadow 0.2s',
+                    }}
+                      onMouseEnter={e => e.currentTarget.style.boxShadow = `0 4px 20px ${accentHex}30`}
+                      onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
+                    >
+                      {/* Left notch side */}
                       <div style={{
-                        background: '#dc2626', width: 90, position: 'relative',
+                        width: 80, flexShrink: 0,
+                        background: `linear-gradient(160deg, ${accentHex}, ${accentHex}BB)`,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        borderRight: '2px dashed rgba(255,255,255,0.4)',
-                        maskImage: 'radial-gradient(circle at 0px 50%, transparent 6px, black 7px)',
-                        WebkitMaskImage: 'radial-gradient(circle at -2px center, transparent 6px, black 7px)'
+                        flexDirection: 'column', gap: 6, padding: '12px 0',
+                        position: 'relative',
+                        clipPath: 'polygon(0 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 0 100%)',
                       }}>
-                        <Ticket size={34} color="#fff" />
+                        <Ticket size={26} color="rgba(255,255,255,0.9)" />
+                        <span style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.8)', fontWeight: 800, textAlign: 'center', letterSpacing: 0.5 }}>
+                          {isFree ? 'FREE\nSHIP' : isPct ? 'SALE' : 'GIẢM'}
+                        </span>
                       </div>
 
+                      {/* Dashed separator */}
+                      <div style={{
+                        width: 1, borderLeft: `2px dashed ${accentHex}44`,
+                        margin: '12px 0', flexShrink: 0,
+                      }} />
+
                       {/* Right: Info */}
-                      <div style={{ padding: '16px 20px', flex: 1, position: 'relative' }}>
-                        <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#111', marginBottom: 6 }}>{discountTitle}</div>
-                        <div style={{ fontSize: '0.8rem', color: '#555', marginBottom: 2 }}>Mã: <strong style={{ color: '#000' }}>{v.code}</strong></div>
-                        <div style={{ fontSize: '0.8rem', color: '#555', marginBottom: 14 }}>HSD: {new Date(v.expires_at).toLocaleDateString('vi-VN')}</div>
-                        
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ padding: '14px 16px', flex: 1 }}>
+                        <div style={{
+                          fontSize: '0.98rem', fontWeight: 800,
+                          color: accentColor, marginBottom: 4,
+                        }}>{discountTitle}</div>
+                        {subLabel && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: 4 }}>{subLabel}</div>}
+                        <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: 2 }}>
+                          Mã: <strong style={{ color: 'var(--text-primary)', letterSpacing: 1 }}>{v.code}</strong>
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: 12 }}>
+                          HSD: {v.expires_at ? new Date(v.expires_at).toLocaleDateString('vi-VN') : '12/12/2026'}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                           <button
-                            onClick={() => {
-                              navigator.clipboard.writeText(v.code);
-                              toast.success(`Đã chép mã ${v.code}!`);
-                            }}
+                            onClick={() => { navigator.clipboard.writeText(v.code); toast.success(`Đã chép mã ${v.code}!`); }}
                             style={{
-                              background: '#dc2626', color: '#fff', border: 'none',
-                              padding: '6px 16px', borderRadius: 20, fontSize: '0.8rem',
-                              fontWeight: 700, cursor: 'pointer', transition: 'background 0.2s'
+                              display: 'inline-flex', alignItems: 'center', gap: 5,
+                              background: accentColor, color: '#fff', border: 'none',
+                              padding: '5px 14px', borderRadius: 20,
+                              fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer',
+                              transition: 'opacity 0.15s',
                             }}
-                            onMouseEnter={e => e.currentTarget.style.background = '#b91c1c'}
-                            onMouseLeave={e => e.currentTarget.style.background = '#dc2626'}
+                            onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
+                            onMouseLeave={e => e.currentTarget.style.opacity = '1'}
                           >
                             Sao chép
                           </button>
-                          <span style={{ fontSize: '0.75rem', color: '#dc2626', cursor: 'pointer' }}>Điều kiện</span>
+                          <span style={{ fontSize: '0.72rem', color: accentColor, cursor: 'default', fontWeight: 600 }}>Điều kiện</span>
                         </div>
                       </div>
                     </div>

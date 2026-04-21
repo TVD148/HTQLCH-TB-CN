@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Heart, BarChart2, ShoppingCart, Star, Eye } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -18,8 +18,11 @@ export default function ProductCard({ product, wishlistIds = [], onWishlistToggl
   const { addToCart } = useCart();
   const { addToCompare, isInCompare } = useCompare();
 
-  // Local wishlist state — starts from parent's wishlistIds prop
-  const [isWished, setIsWished] = useState(() => wishlistIds.includes(product.id));
+  // Sync isWished when wishlistIds prop changes (e.g. after page load fetches real data)
+  const [isWished, setIsWished] = useState(false);
+  useEffect(() => {
+    setIsWished(wishlistIds.includes(product.id));
+  }, [wishlistIds, product.id]);
   const [wishLoading, setWishLoading] = useState(false);
 
   const inCompare = isInCompare(product.id);
@@ -143,10 +146,13 @@ export default function ProductCard({ product, wishlistIds = [], onWishlistToggl
             disabled={wishLoading}
             style={{
               color:      isWished ? '#ef4444' : undefined,
-              background: isWished ? 'rgba(239,68,68,0.15)' : undefined,
+              background: isWished ? 'rgba(239,68,68,0.18)' : undefined,
               transform:  wishLoading ? 'scale(0.85)' : 'scale(1)',
               transition: 'all 0.2s ease',
+              border: isWished ? '1.5px solid rgba(239,68,68,0.4)' : '1.5px solid transparent',
             }}
+            onMouseEnter={e => { if (!isWished) { e.currentTarget.style.background = 'rgba(239,68,68,0.12)'; e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.border = '1.5px solid rgba(239,68,68,0.3)'; } }}
+            onMouseLeave={e => { if (!isWished) { e.currentTarget.style.background = ''; e.currentTarget.style.color = ''; e.currentTarget.style.border = '1.5px solid transparent'; } }}
           >
             <Heart
               size={15}
@@ -160,7 +166,14 @@ export default function ProductCard({ product, wishlistIds = [], onWishlistToggl
             className={`product-card__action-btn ${inCompare ? 'active' : ''}`}
             onClick={handleCompare}
             title={inCompare ? 'Đã thêm vào so sánh' : 'So sánh'}
-            style={inCompare ? { color: 'var(--accent)', background: 'rgba(59,130,246,0.18)' } : {}}
+            style={{
+              color: inCompare ? 'var(--accent)' : undefined,
+              background: inCompare ? 'rgba(59,130,246,0.18)' : undefined,
+              border: inCompare ? '1.5px solid rgba(59,130,246,0.4)' : '1.5px solid transparent',
+              transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={e => { if (!inCompare) { e.currentTarget.style.background = 'rgba(59,130,246,0.12)'; e.currentTarget.style.color = 'var(--accent)'; e.currentTarget.style.border = '1.5px solid rgba(59,130,246,0.3)'; } }}
+            onMouseLeave={e => { if (!inCompare) { e.currentTarget.style.background = ''; e.currentTarget.style.color = ''; e.currentTarget.style.border = '1.5px solid transparent'; } }}
           >
             <BarChart2 size={15} />
           </button>

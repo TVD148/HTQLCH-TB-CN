@@ -59,8 +59,9 @@ export const reviewApi = {
 };
 
 export const warrantyApi = {
-  create: (data)   => api.post('/warranty', data),
-  getAll: ()       => api.get('/warranty'),
+  create:              (data) => api.post('/warranty', data),
+  getAll:              ()     => api.get('/warranty'),
+  getEligibleProducts: ()     => api.get('/warranty/eligible-products'),
 };
 
 export const notificationApi = {

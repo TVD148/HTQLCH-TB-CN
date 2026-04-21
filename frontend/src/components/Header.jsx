@@ -168,7 +168,6 @@ export default function Header() {
                     {[
                       { to: '/profile',  icon: <User size={14} />,    label: 'Hồ sơ của tôi' },
                       { to: '/orders',   icon: <Package size={14} />,  label: 'Đơn hàng' },
-                      { to: '/warranty', icon: <Shield size={14} />,   label: 'Bảo hành' },
                       ...(isAdmin ? [{ to: '/admin', icon: null, label: '⚙️ Quản trị' }] : []),
                     ].map(item => (
                       <Link key={item.to} to={item.to} className="header-v2__dropdown-item"
@@ -246,6 +245,15 @@ export default function Header() {
             <NavLink to="/compare"
               className={({ isActive }) => `header-v2__nav-link${isActive ? ' active' : ''}`}
             >So sánh</NavLink>
+            {user && (
+              <NavLink to="/warranty"
+                className={({ isActive }) => `header-v2__nav-link${isActive ? ' active' : ''}`}
+                style={({ isActive }) => isActive ? {} : {}}
+              >
+                <Shield size={13} style={{ display:'inline', verticalAlign:'middle', marginRight:4, marginTop:-2 }} />
+                Bảo hành
+              </NavLink>
+            )}
           </nav>
 
         </div>

@@ -1766,3 +1766,22 @@ ul, ol { list-style: none; }
   .product-tabs__grid { grid-template-columns: 1fr; }
 }
 
+/* ===============================================
+   UTILITY ANIMATIONS
+   =============================================== */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in { animation: fadeInUp 0.25s ease both; }

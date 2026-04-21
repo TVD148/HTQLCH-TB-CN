@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { SlidersHorizontal, X, ChevronDown, ChevronUp } from 'lucide-react';
-import { productApi, categoryApi, brandApi } from '../api';
+import { productApi, categoryApi, brandApi, wishlistApi } from '../api';
 import ProductCard from '../components/ProductCard';
+import { useAuth } from '../context/AuthContext';
 
 const SORT_OPTIONS = [
   { val: 'newest',     label: 'Mới nhất' },
@@ -12,12 +13,12 @@ const SORT_OPTIONS = [
   { val: 'rating',     label: 'Đánh giá cao nhất' },
 ];
 
-const PER_PAGE_OPTIONS = [12, 20, 24, 48];
+const PER_PAGE_OPTIONS = [12, 15, 18];
 
-// Top 10 popular brands to show by default
 const TOP_BRANDS = ['ASUS', 'MSI', 'Dell', 'HP', 'Lenovo', 'Apple', 'Samsung', 'LG', 'Logitech', 'Razer'];
 
 export default function ShopPage() {
+  const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [products,   setProducts]   = useState([]);
   const [categories, setCategories] = useState([]);
@@ -27,13 +28,15 @@ export default function ShopPage() {
   const [showFilter, setShowFilter] = useState(false);
   const [showAllCats,   setShowAllCats]   = useState(false);
   const [showAllBrands, setShowAllBrands] = useState(false);
+  const [showPerPage, setShowPerPage] = useState(false);
+  const perPageRef = useRef(null);
 
   // Filter state from URL
   const search   = searchParams.get('search')   || '';
   const category = searchParams.get('category') || '';
   const sort     = searchParams.get('sort')     || 'newest';
   const page     = parseInt(searchParams.get('page') || '1');
-  const limit    = parseInt(searchParams.get('limit') || '20');
+  const limit    = parseInt(searchParams.get('limit') || '12');
   const featured = searchParams.get('featured') || '';
 
   const [selectedBrands, setSelectedBrands] = useState(
@@ -48,6 +51,20 @@ export default function ShopPage() {
     document.title = 'Shop – TechStore';
     categoryApi.getAll().then(r => setCategories(r.data.data));
     brandApi.getAll().then(r => setBrands(r.data.data));
+    // Load wishlist IDs so hearts are highlighted on page load
+    if (user) {
+      wishlistApi.getAll().then(r => {
+        const ids = (r.data.data || []).map(i => i.product_id);
+        setWishlistIds(ids);
+      }).catch(() => {});
+    }
+  }, [user]);
+
+  // Close per-page dropdown on outside click
+  useEffect(() => {
+    const handler = (e) => { if (perPageRef.current && !perPageRef.current.contains(e.target)) setShowPerPage(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
   }, []);
 
   const fetchProducts = useCallback(async () => {
@@ -171,40 +188,13 @@ export default function ShopPage() {
           )}
         </div>
 
-        {/* Info + Per Page */}
-        <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+        {/* Info - no per-page at top */}
+        <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
           <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
             Tìm thấy <strong style={{ color: 'var(--text-primary)' }}>{pagination.total}</strong> sản phẩm
             {pagination.totalPages > 1 && (
               <span> · Trang <strong style={{ color: 'var(--text-primary)' }}>{page}</strong>/{pagination.totalPages}</span>
             )}
-          </div>
-          {/* Per page selector */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-            <span>Hiển thị:</span>
-            <div style={{ display: 'flex', gap: 4 }}>
-              {PER_PAGE_OPTIONS.map(n => (
-                <button
-                  key={n}
-                  onClick={() => { setParam('limit', n); setParam('page', 1); }}
-                  style={{
-                    padding: '4px 10px',
-                    borderRadius: 6,
-                    border: '1px solid',
-                    borderColor: limit === n ? 'var(--accent)' : 'var(--border)',
-                    background: limit === n ? 'var(--accent)' : 'var(--surface-2)',
-                    color: limit === n ? '#fff' : 'var(--text-primary)',
-                    fontSize: '0.82rem',
-                    cursor: 'pointer',
-                    fontWeight: limit === n ? 700 : 400,
-                    transition: 'all 0.15s',
-                  }}
-                >
-                  {n}
-                </button>
-              ))}
-            </div>
-            <span>/ trang</span>
           </div>
         </div>
 
@@ -315,100 +305,129 @@ export default function ShopPage() {
                   ))}
                 </div>
 
-                {/* ─── PAGINATION ─── */}
-                {pagination.totalPages > 1 && (
-                  <div style={{ marginTop: 32, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, padding: '16px 0', borderTop: '1px solid var(--border)' }}>
-                    {/* Left: page info */}
-                    <div style={{ fontSize: '0.83rem', color: 'var(--text-muted)' }}>
-                      Trang <strong style={{ color: 'var(--text-primary)' }}>{page}</strong> / {pagination.totalPages}
-                      &nbsp;·&nbsp;
-                      {pagination.total} sản phẩm
-                    </div>
+                {/* ─── PAGINATION + PER PAGE BAR ─── */}
+                <div style={{
+                  marginTop: 28,
+                  display: 'flex', alignItems: 'center',
+                  justifyContent: 'space-between', flexWrap: 'wrap', gap: 10,
+                  padding: '12px 16px',
+                  background: 'var(--surface-3)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 10,
+                }}>
 
-                    {/* Center: page buttons */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      {/* Prev */}
-                      <button
-                        onClick={() => goToPage(page - 1)}
-                        disabled={page <= 1}
-                        style={{
-                          width: 36, height: 36, borderRadius: 8,
-                          border: '1px solid var(--border)',
-                          background: page <= 1 ? 'var(--surface-1)' : 'var(--surface-2)',
-                          color: page <= 1 ? 'var(--text-muted)' : 'var(--text-primary)',
-                          cursor: page <= 1 ? 'not-allowed' : 'pointer',
-                          fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          transition: 'all 0.15s',
-                        }}
-                      >«</button>
+                  {/* ── Page buttons ── */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
 
-                      {buildPageNums().map((p, idx) =>
-                        p === '…' ? (
-                          <span key={`ellipsis-${idx}`} style={{ padding: '0 4px', color: 'var(--text-muted)', userSelect: 'none' }}>…</span>
-                        ) : (
-                          <button
-                            key={p}
-                            onClick={() => goToPage(p)}
-                            style={{
-                              width: 36, height: 36, borderRadius: 8,
-                              border: '1px solid',
-                              borderColor: p === page ? 'var(--accent)' : 'var(--border)',
-                              background: p === page ? 'var(--accent)' : 'var(--surface-2)',
-                              color: p === page ? '#fff' : 'var(--text-primary)',
-                              fontWeight: p === page ? 700 : 400,
-                              cursor: 'pointer',
-                              fontSize: '0.88rem',
-                              display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              transition: 'all 0.15s',
-                              boxShadow: p === page ? '0 0 0 2px rgba(59,130,246,0.25)' : 'none',
-                            }}
-                          >
-                            {p}
-                          </button>
-                        )
-                      )}
+                    {/* « Prev */}
+                    <button
+                      onClick={() => goToPage(page - 1)}
+                      disabled={page <= 1}
+                      style={{
+                        minWidth: 34, height: 34, borderRadius: 6, padding: '0 10px',
+                        border: '1px solid var(--border)',
+                        background: 'var(--surface-2)',
+                        color: page <= 1 ? 'var(--text-muted)' : 'var(--text-secondary)',
+                        cursor: page <= 1 ? 'not-allowed' : 'pointer',
+                        fontSize: '0.85rem', fontWeight: 600,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        transition: 'all 0.15s', opacity: page <= 1 ? 0.45 : 1,
+                      }}
+                    >«</button>
 
-                      {/* Next */}
-                      <button
-                        onClick={() => goToPage(page + 1)}
-                        disabled={page >= pagination.totalPages}
-                        style={{
-                          width: 36, height: 36, borderRadius: 8,
-                          border: '1px solid var(--border)',
-                          background: page >= pagination.totalPages ? 'var(--surface-1)' : 'var(--surface-2)',
-                          color: page >= pagination.totalPages ? 'var(--text-muted)' : 'var(--text-primary)',
-                          cursor: page >= pagination.totalPages ? 'not-allowed' : 'pointer',
-                          fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          transition: 'all 0.15s',
-                        }}
-                      >»</button>
-                    </div>
-
-                    {/* Right: per page */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                      <span>Hiển thị:</span>
-                      {PER_PAGE_OPTIONS.map(n => (
+                    {/* Page numbers */}
+                    {buildPageNums().map((pg, idx) =>
+                      pg === '…' ? (
+                        <span key={`ell-${idx}`} style={{
+                          minWidth: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          color: 'var(--text-muted)', fontSize: '0.85rem', userSelect: 'none',
+                        }}>…</span>
+                      ) : (
                         <button
-                          key={n}
-                          onClick={() => { setParam('limit', n); goToPage(1); }}
+                          key={pg}
+                          onClick={() => goToPage(pg)}
                           style={{
-                            padding: '4px 10px', borderRadius: 6,
-                            border: '1px solid',
-                            borderColor: limit === n ? 'var(--accent)' : 'var(--border)',
-                            background: limit === n ? 'var(--accent)' : 'var(--surface-2)',
-                            color: limit === n ? '#fff' : 'var(--text-primary)',
-                            fontSize: '0.82rem', cursor: 'pointer',
-                            fontWeight: limit === n ? 700 : 400,
+                            minWidth: 34, height: 34, borderRadius: 6,
+                            border: '1.5px solid',
+                            borderColor: pg === page ? 'var(--accent)' : 'var(--border)',
+                            background: pg === page ? 'var(--accent)' : 'var(--surface-2)',
+                            color: pg === page ? '#fff' : 'var(--text-primary)',
+                            fontWeight: pg === page ? 700 : 500,
+                            cursor: 'pointer', fontSize: '0.85rem',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
                             transition: 'all 0.15s',
+                            boxShadow: pg === page ? '0 2px 8px rgba(59,130,246,0.3)' : 'none',
                           }}
-                        >
-                          {n}
-                        </button>
-                      ))}
-                      <span>/ trang</span>
-                    </div>
+                        >{pg}</button>
+                      )
+                    )}
+
+                    {/* » Next */}
+                    <button
+                      onClick={() => goToPage(page + 1)}
+                      disabled={page >= pagination.totalPages}
+                      style={{
+                        minWidth: 34, height: 34, borderRadius: 6, padding: '0 10px',
+                        border: '1px solid var(--border)',
+                        background: 'var(--surface-2)',
+                        color: page >= pagination.totalPages ? 'var(--text-muted)' : 'var(--text-secondary)',
+                        cursor: page >= pagination.totalPages ? 'not-allowed' : 'pointer',
+                        fontSize: '0.85rem', fontWeight: 600,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        transition: 'all 0.15s', opacity: page >= pagination.totalPages ? 0.45 : 1,
+                      }}
+                    >»</button>
                   </div>
-                )}
+
+                  {/* ── Show Per Page ── */}
+                  <div ref={perPageRef} style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontWeight: 500, whiteSpace: 'nowrap' }}>Show Per Page</span>
+                    <button
+                      onClick={() => setShowPerPage(v => !v)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 6,
+                        padding: '5px 12px', borderRadius: 6,
+                        border: `1.5px solid ${showPerPage ? 'var(--accent)' : 'var(--border)'}`,
+                        background: 'var(--surface-2)', color: 'var(--text-primary)',
+                        fontSize: '0.88rem', fontWeight: 700, cursor: 'pointer',
+                        minWidth: 58, justifyContent: 'space-between',
+                        transition: 'border-color 0.15s',
+                      }}
+                    >
+                      {limit}
+                      <ChevronDown size={13} style={{ transform: showPerPage ? 'rotate(180deg)' : 'none', transition: 'transform 0.18s', color: 'var(--text-muted)' }} />
+                    </button>
+
+                    {showPerPage && (
+                      <div style={{
+                        position: 'absolute', bottom: 'calc(100% + 6px)', right: 0,
+                        background: 'var(--surface-2)', border: '1.5px solid var(--border)',
+                        borderRadius: 8, overflow: 'hidden', zIndex: 50,
+                        minWidth: 80, boxShadow: 'var(--shadow-lg)',
+                      }}>
+                        {PER_PAGE_OPTIONS.map(n => (
+                          <button key={n}
+                            onClick={() => { setParam('limit', n); goToPage(1); setShowPerPage(false); }}
+                            style={{
+                              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                              width: '100%', padding: '9px 16px',
+                              border: 'none', cursor: 'pointer',
+                              background: limit === n ? 'var(--accent-light)' : 'transparent',
+                              color: limit === n ? 'var(--accent)' : 'var(--text-primary)',
+                              fontSize: '0.88rem', fontWeight: limit === n ? 700 : 400,
+                              transition: 'background 0.12s',
+                            }}
+                            onMouseEnter={e => { if (limit !== n) e.currentTarget.style.background = 'var(--surface-3)'; }}
+                            onMouseLeave={e => { if (limit !== n) e.currentTarget.style.background = 'transparent'; }}
+                          >
+                            {n}
+                            {limit === n && <span style={{ fontSize: '0.75rem', color: 'var(--accent)' }}>✓</span>}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </>
             )}
           </div>
