@@ -54,10 +54,12 @@ export default function ProductDetailPage() {
   return (
     <div className="section"><div className="container">
       {/* Breadcrumb */}
-      <div style={{display:'flex',gap:8,fontSize:'0.82rem',color:'var(--text-muted)',marginBottom:24,flexWrap:'wrap'}}>
-        <Link to="/">Trang chủ</Link><span>/</span>
-        <Link to="/shop">Cửa hàng</Link><span>/</span>
-        <span style={{color:'var(--text-primary)'}}>{product.name}</span>
+      <div style={{display:'flex',gap:8,fontSize:'0.82rem',color:'var(--text-muted)',marginBottom:24,flexWrap:'wrap',alignItems:'center'}}>
+        <Link to="/" style={{color:'var(--text-muted)',textDecoration:'none'}}>Trang chủ</Link>
+        <span style={{color:'var(--surface-3)'}}>/</span>
+        <Link to="/shop" style={{color:'var(--text-muted)',textDecoration:'none'}}>Sản phẩm</Link>
+        <span style={{color:'var(--surface-3)'}}>/</span>
+        <span style={{color:'var(--text-primary)',fontWeight:600}}>{product.name}</span>
       </div>
 
       {/* Main Product Grid */}
@@ -134,9 +136,9 @@ export default function ProductDetailPage() {
           )}
 
           <div style={{display:'flex',gap:12,marginBottom:28}}>
-            <button className="btn btn-outline" style={{flex:1,height:46,fontSize:'0.95rem'}} onClick={handleWishlist}
-              style={{...(wishlisted?{borderColor:'var(--red)',color:'var(--red)'}:{}), flex:1, height:46, fontSize:'0.95rem'}}>
-              <Heart size={16} fill={wishlisted?'currentColor':'none'}/> {wishlisted?'Đã thích':'Yêu thích'}
+            <button className="btn btn-outline" onClick={handleWishlist}
+              style={{...(wishlisted?{borderColor:'var(--red)',color:'var(--red)',background:'rgba(239,68,68,0.08)'}:{}), flex:1, height:46, fontSize:'0.95rem'}}>
+              <Heart size={16} fill={wishlisted?'#ef4444':'none'} stroke={wishlisted?'#ef4444':'currentColor'}/> {wishlisted?'Đã thích':'Yêu thích'}
             </button>
             <button
               className={`btn ${isInCompare(product.id) ? 'btn-primary' : 'btn-ghost'}`}

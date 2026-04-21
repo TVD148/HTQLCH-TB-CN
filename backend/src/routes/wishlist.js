@@ -11,9 +11,12 @@ router.get('/', async (req, res, next) => {
       `SELECT yt.ma_yeu_thich AS id, yt.ngay_them AS created_at,
               sp.ma_san_pham AS product_id, sp.ten_san_pham AS name, sp.duong_dan AS slug,
               sp.gia_goc AS price, sp.gia_khuyen_mai AS sale_price,
-              sp.anh_dai_dien AS thumbnail, sp.danh_gia_tb AS avg_rating, sp.so_luong_ton AS stock_quantity
+              sp.anh_dai_dien AS thumbnail, sp.danh_gia_tb AS avg_rating,
+              sp.so_luong_ton AS stock_quantity, sp.noi_bat AS is_featured,
+              th.ten_thuong_hieu AS brand_name
        FROM yeu_thich yt
        JOIN san_pham sp ON sp.ma_san_pham = yt.ma_san_pham
+       LEFT JOIN thuong_hieu th ON th.ma_thuong_hieu = sp.ma_thuong_hieu
        WHERE yt.ma_nguoi_dung = ? AND sp.trang_thai = 1`,
       [req.user.id]
     );

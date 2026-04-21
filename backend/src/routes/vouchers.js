@@ -2,6 +2,32 @@ const router = require('express').Router();
 const db = require('../config/database');
 const { verifyToken } = require('../middleware/auth');
 
+// ─── GET /api/vouchers/public ─────────────────────────────
+// Lấy các voucher có thể hiện trên trang chủ
+router.get('/public', async (req, res, next) => {
+  try {
+    const [rows] = await db.query(
+      `SELECT
+          ma_voucher AS id,
+          ma_code AS code,
+          ten_voucher AS name,
+          loai_giam AS discount_type,
+          gia_tri_giam AS discount_value,
+          giam_toi_da AS max_discount,
+          don_hang_toi_thieu AS min_order,
+          ngay_het_han AS expires_at
+       FROM ma_giam_gia
+       WHERE trang_thai = 1
+         AND ngay_bat_dau <= NOW()
+         AND ngay_het_han >= NOW()
+         AND da_su_dung < so_lan_toi_da
+       ORDER BY (loai_giam = 'freeship') DESC, don_hang_toi_thieu ASC
+       LIMIT 6`
+    );
+    res.json({ success: true, data: rows });
+  } catch (err) { next(err); }
+});
+
 // ─── GET /api/vouchers/available ─────────────────────────────
 // Lay tat ca voucher con hieu luc va phu hop voi don hang hien tai
 router.get('/available', verifyToken, async (req, res, next) => {
