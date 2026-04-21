@@ -237,4 +237,85 @@ router.post('/send-weekly', verifyToken, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ─── POST /api/vouchers/claim/:id ────────────────────────────
+// User nhận / lưu voucher công khai về danh sách cá nhân
+router.post('/claim/:id', verifyToken, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    // Kiểm tra voucher tồn tại và còn hiệu lực
+    const [rows] = await db.query(
+      `SELECT * FROM ma_giam_gia
+       WHERE ma_voucher = ? AND trang_thai = 1
+         AND ngay_bat_dau <= NOW() AND ngay_het_han >= NOW()
+         AND da_su_dung < so_lan_toi_da`,
+      [id]
+    );
+    if (!rows.length) {
+      return res.status(400).json({ success: false, message: 'Voucher không tồn tại hoặc đã hết lượt' });
+    }
+
+    // Kiểm tra user đã nhận chưa
+    const [existed] = await db.query(
+      'SELECT ma_id FROM voucher_nguoi_dung WHERE ma_voucher = ? AND ma_nguoi_dung = ?',
+      [id, userId]
+    );
+    if (existed.length) {
+      return res.status(400).json({ success: false, message: 'Bạn đã nhận voucher này rồi!' });
+    }
+
+    // Lưu vào voucher_nguoi_dung
+    await db.query(
+      'INSERT INTO voucher_nguoi_dung (ma_voucher, ma_nguoi_dung) VALUES (?, ?)',
+      [id, userId]
+    );
+
+    // Gửi thông báo
+    const v = rows[0];
+    await db.query(
+      `INSERT INTO thong_bao (ma_nguoi_dung, tieu_de, noi_dung, loai, ma_tham_chieu)
+       VALUES (?, ?, ?, 'khuyen_mai', ?)`,
+      [
+        userId,
+        `🎁 Bạn đã nhận voucher "${v.ma_code}"!`,
+        `TechStore đã lưu voucher "${v.ten_voucher}" vào tài khoản của bạn. Dùng khi thanh toán để được giảm giá!`,
+        v.ma_code,
+      ]
+    );
+
+    res.json({ success: true, message: `Đã nhận voucher ${v.ma_code} thành công!` });
+  } catch (err) { next(err); }
+});
+
+// ─── GET /api/vouchers/mine ───────────────────────────────────
+// Lấy danh sách voucher cá nhân của user (đã nhận, chưa dùng + đã dùng)
+router.get('/mine', verifyToken, async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+
+    const [rows] = await db.query(
+      `SELECT
+          v.ma_voucher    AS id,
+          v.ma_code       AS code,
+          v.ten_voucher   AS name,
+          v.mo_ta         AS description,
+          v.loai_giam     AS discount_type,
+          v.gia_tri_giam  AS discount_value,
+          v.giam_toi_da   AS max_discount,
+          v.don_hang_toi_thieu AS min_order,
+          v.ngay_het_han  AS expires_at,
+          vnd.da_su_dung  AS used,
+          vnd.ngay_gui    AS claimed_at
+       FROM voucher_nguoi_dung vnd
+       JOIN ma_giam_gia v ON v.ma_voucher = vnd.ma_voucher
+       WHERE vnd.ma_nguoi_dung = ?
+       ORDER BY vnd.da_su_dung ASC, v.ngay_het_han ASC`,
+      [userId]
+    );
+
+    res.json({ success: true, data: rows });
+  } catch (err) { next(err); }
+});
+
 module.exports = router;

@@ -22,6 +22,7 @@ import ProfilePage      from '../pages/ProfilePage';
 import NotFoundPage     from '../pages/NotFoundPage';
 import AboutPage        from '../pages/AboutPage';
 import ContactPage      from '../pages/ContactPage';
+import MyVouchersPage   from '../pages/MyVouchersPage';
 
 // Admin Pages
 import AdminDashboard   from '../pages/admin/AdminDashboard';
@@ -69,6 +70,7 @@ function AppRoutes() {
         <Route path="/orders/:id" element={<ProtectedRoute><OrderDetailPage /></ProtectedRoute>} />
         <Route path="/wishlist" element={<ProtectedRoute><WishlistPage /></ProtectedRoute>} />
         <Route path="/warranty" element={<ProtectedRoute><WarrantyPage /></ProtectedRoute>} />
+        <Route path="/my-vouchers" element={<ProtectedRoute><MyVouchersPage /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
       </Route>
 

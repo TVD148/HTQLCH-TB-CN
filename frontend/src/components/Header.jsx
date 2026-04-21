@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, NavLink } from 'react-router-dom';
 import { ShoppingCart, Heart, Bell, Search, Zap, User, LogOut, Package, Shield,
-         ChevronDown, Sun, Moon, Menu, X, LayoutGrid } from 'lucide-react';
+         ChevronDown, Sun, Moon, Menu, X, LayoutGrid, Ticket } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { useTheme } from '../context/ThemeContext';
@@ -166,8 +166,9 @@ export default function Header() {
                       )}
                     </div>
                     {[
-                      { to: '/profile',  icon: <User size={14} />,    label: 'Hồ sơ của tôi' },
-                      { to: '/orders',   icon: <Package size={14} />,  label: 'Đơn hàng' },
+                      { to: '/profile',     icon: <User size={14} />,    label: 'Hồ sơ của tôi' },
+                      { to: '/orders',      icon: <Package size={14} />,  label: 'Đơn hàng' },
+                      { to: '/my-vouchers', icon: <Ticket size={14} />,   label: 'Voucher của tôi' },
                       ...(isAdmin ? [{ to: '/admin', icon: null, label: '⚙️ Quản trị' }] : []),
                     ].map(item => (
                       <Link key={item.to} to={item.to} className="header-v2__dropdown-item"

@@ -70,7 +70,6 @@ export default function CartPage() {
           <div style={{fontWeight:700,fontSize:'1rem',marginBottom:16}}>Tóm tắt đơn hàng</div>
           <div className="summary-row"><span>Tạm tính</span><span>{fmt(cart.subtotal)}</span></div>
           {voucher && <div className="summary-row discount"><span>Giảm ({voucher.voucher_code})</span><span>-{fmt(voucher.discount_amount)}</span></div>}
-          <div className="summary-row"><span>Phí vận chuyển</span><span style={{color:'var(--emerald)'}}>Miễn phí</span></div>
           <div className="summary-row total"><span>Tổng cộng</span><span style={{color:'var(--accent)',fontSize:'1.2rem'}}>{fmt(finalTotal)}</span></div>
 
           {/* Voucher */}

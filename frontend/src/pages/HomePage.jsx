@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ChevronRight, Shield, Truck, RefreshCw, Headphones, Star, ArrowRight,
-         TrendingUp, Clock, Award, Zap, Ticket } from 'lucide-react';
+         TrendingUp, Clock, Award, Zap, Ticket, X } from 'lucide-react';
 import { productApi, categoryApi, voucherApi } from '../api';
+import { useAuth } from '../context/AuthContext';
 import ProductCard from '../components/ProductCard';
 import toast from 'react-hot-toast';
 
@@ -51,9 +52,23 @@ export default function HomePage() {
   const [gamingCatId,     setGamingCatId]     = useState(null);
   const [officeCatId,     setOfficeCatId]     = useState(null);
 
+  const { user } = useAuth();
   const [hH, hM, hS] = useCountdown(5, 59, 59);
   const tabsRef  = useRef(null);
   const navigate = useNavigate();
+  const [infoVoucher, setInfoVoucher] = useState(null);
+  const [claimedIds,   setClaimedIds] = useState(new Set());
+
+  // Load danh sách voucher đã nhận từ DB (persist sau reload)
+  useEffect(() => {
+    if (!user) { setClaimedIds(new Set()); return; }
+    voucherApi.getMine()
+      .then(r => {
+        const ids = new Set((r.data.data || []).map(v => v.id));
+        setClaimedIds(ids);
+      })
+      .catch(() => {});
+  }, [user]);
 
   useEffect(() => {
     document.title = 'TechStore – Thiết bị công nghệ chính hãng';
@@ -121,6 +136,115 @@ export default function HomePage() {
 
   return (
     <div>
+      {/* ── Voucher Info Modal ── */}
+      {infoVoucher && (
+        <div
+          onClick={() => setInfoVoucher(null)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9999,
+            background: 'rgba(0,0,0,0.55)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 20,
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: 'var(--surface-1)',
+              borderRadius: 10, overflow: 'hidden',
+              width: '100%', maxWidth: 420,
+              boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
+              animation: 'fadeInUp 0.2s ease',
+            }}
+          >
+            {/* Header đỏ */}
+            <div style={{
+              background: '#e53e3e', padding: '14px 18px',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            }}>
+              <span style={{ color: '#fff', fontWeight: 700, fontSize: '1rem' }}>Thông tin voucher</span>
+              <button
+                onClick={() => setInfoVoucher(null)}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: '#fff', width: 28, height: 28, borderRadius: '50%',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'background 0.15s',
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'none'}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {[
+                { label: 'Mã giảm giá:', value: infoVoucher.code, bold: true },
+                {
+                  label: 'Ngày hết hạn:',
+                  value: infoVoucher.expires_at
+                    ? new Date(infoVoucher.expires_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                    : 'Không giới hạn',
+                  bold: true,
+                },
+              ].map(row => (
+                <div key={row.label} style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+                  <span style={{ color: '#e53e3e', fontWeight: 600, fontSize: '0.88rem', minWidth: 110, flexShrink: 0, paddingTop: 2 }}>
+                    {row.label}
+                  </span>
+                  <div style={{ fontSize: '0.9rem', color: 'var(--text-primary)', lineHeight: 1.6 }}>
+                    {row.bold ? <strong>{row.value}</strong> : row.value}
+                  </div>
+                </div>
+              ))}
+
+              {/* Điều kiện */}
+              <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+                <span style={{ color: '#e53e3e', fontWeight: 600, fontSize: '0.88rem', minWidth: 110, flexShrink: 0, paddingTop: 2 }}>
+                  Điều kiện:
+                </span>
+                <div style={{ fontSize: '0.9rem', color: 'var(--text-primary)', lineHeight: 1.8 }}>
+                  {infoVoucher.min_order > 0 && (
+                    <div>Áp dụng cho đơn hàng từ {fmt(infoVoucher.min_order)} trở lên</div>
+                  )}
+                  {infoVoucher.discount_type === 'percent' && (
+                    <div>
+                      Giảm {infoVoucher.discount_value}%
+                      {infoVoucher.max_discount ? ` (tối đa ${fmt(infoVoucher.max_discount)})` : ''}
+                    </div>
+                  )}
+                  {infoVoucher.discount_type === 'fixed_amount' && (
+                    <div>Giảm cố định {fmt(infoVoucher.discount_value)}</div>
+                  )}
+                  {infoVoucher.discount_type === 'freeship' && (
+                    <div>Miễn phí vận chuyển</div>
+                  )}
+                  <div>Mỗi tài khoản chỉ sử dụng được 1 lần</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div style={{ padding: '10px 24px 20px', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button
+                onClick={() => { navigator.clipboard.writeText(infoVoucher.code); toast.success(`Đã chép mã ${infoVoucher.code}!`); }}
+                className="btn btn-ghost btn-sm"
+              >
+                Sao chép mã
+              </button>
+              <button
+                onClick={() => setInfoVoucher(null)}
+                className="btn btn-sm"
+                style={{ background: '#e53e3e', border: 'none', color: '#fff', fontWeight: 700 }}
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* ─── HERO ─────────────────────────────────────── */}
       <section className="hero">
         <div className="container">
@@ -346,20 +470,42 @@ export default function HomePage() {
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                           <button
-                            onClick={() => { navigator.clipboard.writeText(v.code); toast.success(`Đã chép mã ${v.code}!`); }}
+                            onClick={async () => {
+                              if (!user) { navigate('/login'); return; }
+                              try {
+                                await voucherApi.claim(v.id);
+                                setClaimedIds(prev => new Set([...prev, v.id]));
+                                toast.success(`Đã nhận voucher ${v.code}! Xem tại "Voucher của tôi"`);
+                              } catch (err) {
+                                toast.error(err.response?.data?.message || 'Không thể nhận vôucher!');
+                              }
+                            }}
                             style={{
                               display: 'inline-flex', alignItems: 'center', gap: 5,
-                              background: accentColor, color: '#fff', border: 'none',
+                              background: claimedIds.has(v.id) ? 'var(--surface-3)' : accentColor,
+                              color: claimedIds.has(v.id) ? 'var(--text-muted)' : '#fff',
+                              border: 'none',
                               padding: '5px 14px', borderRadius: 20,
                               fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer',
                               transition: 'opacity 0.15s',
+                              pointerEvents: claimedIds.has(v.id) ? 'none' : 'auto',
                             }}
-                            onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
+                            onMouseEnter={e => { if (!claimedIds.has(v.id)) e.currentTarget.style.opacity = '0.85'; }}
                             onMouseLeave={e => e.currentTarget.style.opacity = '1'}
                           >
-                            Sao chép
+                            {claimedIds.has(v.id) ? '✓ Đã nhận' : 'Nhận'}
                           </button>
-                          <span style={{ fontSize: '0.72rem', color: accentColor, cursor: 'default', fontWeight: 600 }}>Điều kiện</span>
+                          <button
+                            onClick={() => setInfoVoucher(v)}
+                            style={{
+                              background: 'none', border: 'none', cursor: 'pointer',
+                              fontSize: '0.72rem', color: accentColor, fontWeight: 600,
+                              padding: '2px 6px', borderRadius: 4,
+                              transition: 'opacity 0.15s',
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.opacity = '0.7'}
+                            onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                          >Điều kiện</button>
                         </div>
                       </div>
                     </div>

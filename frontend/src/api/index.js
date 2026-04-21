@@ -43,6 +43,8 @@ export const voucherApi = {
   validate:    (code, cart_total) => api.get(`/vouchers/validate/${code}`, { params: { cart_total } }),
   getAvailable:(cart_total)       => api.get('/vouchers/available', { params: { cart_total } }),
   sendWeekly:  (voucher_id)       => api.post('/vouchers/send-weekly', { voucher_id }),
+  claim:       (id)               => api.post(`/vouchers/claim/${id}`),
+  getMine:     ()                 => api.get('/vouchers/mine'),
 };
 
 export const wishlistApi = {
@@ -94,4 +96,12 @@ export const adminApi = {
   getInventoryLogs:  (params)      => api.get('/admin/inventory/logs', { params }),
   getReviews:        (params)      => api.get('/admin/reviews', { params }),
   approveReview:     (id)          => api.patch(`/admin/reviews/${id}/approve`),
+};
+
+export const addressApi = {
+  getAll:     ()         => api.get('/addresses'),
+  create:     (data)     => api.post('/addresses', data),
+  update:     (id, data) => api.put(`/addresses/${id}`, data),
+  setDefault: (id)       => api.patch(`/addresses/${id}/default`),
+  remove:     (id)       => api.delete(`/addresses/${id}`),
 };

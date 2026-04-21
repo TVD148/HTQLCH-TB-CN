@@ -4,14 +4,151 @@ import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { orderApi, voucherApi } from '../api';
 import toast from 'react-hot-toast';
-import { Tag, ChevronDown, ChevronUp, CheckCircle2, XCircle, Coins } from 'lucide-react';
+import { Tag, ChevronDown, ChevronUp, CheckCircle2, XCircle, Coins, X } from 'lucide-react';
 
 const fmt = (p) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(p);
 
+/* ── Voucher Info Modal ────────────────────────────────────── */
+function VoucherInfoModal({ voucher, onClose }) {
+  if (!voucher) return null;
+
+  const fmt = (p) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(p);
+
+  const getConditionText = (v) => {
+    const parts = [];
+    if (v.min_order > 0) parts.push(`Áp dụng cho đơn hàng từ ${fmt(v.min_order)} trở lên`);
+    if (v.discount_type === 'percent') {
+      parts.push(`Giảm ${v.discount_value}%${v.max_discount ? ` (tối đa ${fmt(v.max_discount)})` : ''}`);
+    } else if (v.discount_type === 'fixed_amount') {
+      parts.push(`Giảm cố định ${fmt(v.discount_value)}`);
+    } else if (v.discount_type === 'freeship') {
+      parts.push('Miễn phí vận chuyển');
+    }
+    parts.push('Mỗi tài khoản chỉ sử dụng được 1 lần');
+    return parts;
+  };
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        background: 'rgba(0,0,0,0.5)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 20,
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: 'var(--surface-1)',
+          borderRadius: 10,
+          overflow: 'hidden',
+          width: '100%', maxWidth: 420,
+          boxShadow: '0 20px 60px rgba(0,0,0,0.35)',
+          animation: 'fadeInUp 0.2s ease',
+        }}
+      >
+        {/* Header đỏ */}
+        <div style={{
+          background: '#e53e3e',
+          padding: '14px 18px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <span style={{ color: '#fff', fontWeight: 700, fontSize: '1rem' }}>
+            Thông tin voucher
+          </span>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 28, height: 28, borderRadius: '50%',
+              transition: 'background 0.15s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'none'}
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {[
+            { label: 'Mã giảm giá:', value: voucher.code },
+            {
+              label: 'Ngày hết hạn:',
+              value: voucher.expires_at
+                ? new Date(voucher.expires_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                : 'Không giới hạn',
+            },
+            {
+              label: 'Điều kiện:',
+              value: getConditionText(voucher),
+              isList: true,
+            },
+          ].map(row => (
+            <div key={row.label} style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+              <span style={{
+                color: '#e53e3e', fontWeight: 600, fontSize: '0.88rem',
+                minWidth: 110, flexShrink: 0, paddingTop: 2,
+              }}>
+                {row.label}
+              </span>
+              <div style={{ fontSize: '0.9rem', color: 'var(--text-primary)', lineHeight: 1.6 }}>
+                {row.isList
+                  ? row.value.map((t, i) => <div key={i}>{t}</div>)
+                  : <strong>{row.value}</strong>
+                }
+              </div>
+            </div>
+          ))}
+
+          {/* Trạng thái */}
+          <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+            <span style={{ color: '#e53e3e', fontWeight: 600, fontSize: '0.88rem', minWidth: 110, flexShrink: 0 }}>
+              Trạng thái:
+            </span>
+            {voucher.already_used ? (
+              <span style={{ fontSize: '0.85rem', color: '#ef4444', fontWeight: 600 }}>❌ Đã sử dụng</span>
+            ) : !voucher.eligible ? (
+              <span style={{ fontSize: '0.85rem', color: '#f59e0b', fontWeight: 600 }}>⚠️ Chưa đủ điều kiện</span>
+            ) : (
+              <span style={{ fontSize: '0.85rem', color: '#10b981', fontWeight: 600 }}>✅ Có thể sử dụng</span>
+            )}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: '12px 24px 20px', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button
+            onClick={onClose}
+            className="btn btn-ghost btn-sm"
+          >
+            Đóng
+          </button>
+          {voucher.eligible && !voucher.already_used && (
+            <button
+              onClick={() => { voucher._onApply?.(); onClose(); }}
+              className="btn btn-primary btn-sm"
+              style={{ background: '#e53e3e', borderColor: '#e53e3e' }}
+            >
+              Áp dụng ngay
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── VoucherPicker ─────────────────────────────────────────── */
 function VoucherPicker({ cartTotal, onSelect, selected }) {
   const [vouchers, setVouchers]   = useState([]);
   const [loading,  setLoading]    = useState(false);
   const [open,     setOpen]       = useState(false);
+  const [infoVoucher, setInfoVoucher] = useState(null); // voucher đang xem info
 
   useEffect(() => {
     if (!open) return;
@@ -33,95 +170,141 @@ function VoucherPicker({ cartTotal, onSelect, selected }) {
     freeship:     'var(--amber)',
   };
 
-  return (
-    <div className="voucher-picker">
-      <div className="voucher-picker__trigger" onClick={() => setOpen(v => !v)}>
-        <Tag size={16} style={{ color: 'var(--accent)' }} />
-        {selected ? (
-          <span style={{ flex: 1, fontWeight: 600, color: 'var(--emerald)' }}>
-            ✓ {selected.code} — {selected.name}
-          </span>
-        ) : (
-          <span style={{ flex: 1, color: 'var(--text-muted)' }}>Chọn voucher giảm giá...</span>
-        )}
-        {selected && (
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onSelect(null); }}
-            style={{ color: 'var(--red)', background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}
-          >
-            <XCircle size={15} />
-          </button>
-        )}
-        {open ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-      </div>
+  const fmt = (p) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(p);
 
-      {open && (
-        <div className="voucher-picker__dropdown">
-          {loading && <div style={{ padding: 16, textAlign: 'center', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Đang tải voucher...</div>}
-          {!loading && vouchers.length === 0 && (
-            <div style={{ padding: 16, textAlign: 'center', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-              Bạn chưa có voucher nào phù hợp 😊<br />
-              <span style={{ fontSize: '0.78rem' }}>Voucher miễn ship được gửi hàng tuần qua thông báo</span>
-            </div>
-          )}
-          {vouchers.map(v => (
-            <div
-              key={v.id}
-              className={`voucher-picker__item${!v.eligible || v.already_used ? ' disabled' : ''}${selected?.id === v.id ? ' selected' : ''}`}
-              onClick={() => {
-                if (!v.eligible || v.already_used) return;
-                onSelect(v);
-                setOpen(false);
-              }}
-            >
-              <div className="voucher-picker__item-left">
-                <span className="voucher-picker__badge" style={{ background: TYPE_COLOR[v.discount_type] }}>
-                  {TYPE_LABEL[v.discount_type]}
-                </span>
-                <div>
-                  <div className="voucher-picker__code">{v.code}</div>
-                  <div className="voucher-picker__name">{v.name}</div>
-                  {v.description && <div className="voucher-picker__desc">{v.description}</div>}
-                </div>
-              </div>
-              <div className="voucher-picker__item-right">
-                {v.discount_type === 'freeship' ? (
-                  <div className="voucher-picker__amount" style={{ color: 'var(--amber)' }}>Miễn ship</div>
-                ) : (
-                  <div className="voucher-picker__amount" style={{ color: 'var(--emerald)' }}>
-                    -{fmt(v.discount_amount)}
-                  </div>
-                )}
-                {v.min_order > 0 && (
-                  <div className="voucher-picker__min">
-                    Đơn từ {fmt(v.min_order)}
-                  </div>
-                )}
-                {!v.eligible && (
-                  <div style={{ fontSize: '0.72rem', color: 'var(--red)', marginTop: 2 }}>
-                    Chưa đủ điều kiện
-                  </div>
-                )}
-                {v.already_used && (
-                  <div style={{ fontSize: '0.72rem', color: 'var(--red)', marginTop: 2 }}>
-                    Đã sử dụng
-                  </div>
-                )}
-                {v.is_personal && (
-                  <div style={{ fontSize: '0.72rem', color: 'var(--amber)', marginTop: 2 }}>
-                    🎁 Voucher của bạn
-                  </div>
-                )}
-                {selected?.id === v.id && <CheckCircle2 size={15} color="var(--emerald)" style={{ marginTop: 4 }} />}
-              </div>
-            </div>
-          ))}
-        </div>
+  return (
+    <>
+      {/* Modal thông tin voucher */}
+      {infoVoucher && (
+        <VoucherInfoModal
+          voucher={infoVoucher}
+          onClose={() => setInfoVoucher(null)}
+        />
       )}
-    </div>
+
+      <div className="voucher-picker">
+        <div className="voucher-picker__trigger" onClick={() => setOpen(v => !v)}>
+          <Tag size={16} style={{ color: 'var(--accent)' }} />
+          {selected ? (
+            <span style={{ flex: 1, fontWeight: 600, color: 'var(--emerald)' }}>
+              ✓ {selected.code} — {selected.name}
+            </span>
+          ) : (
+            <span style={{ flex: 1, color: 'var(--text-muted)' }}>Chọn voucher giảm giá...</span>
+          )}
+          {selected && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onSelect(null); }}
+              style={{ color: 'var(--red)', background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}
+            >
+              <XCircle size={15} />
+            </button>
+          )}
+          {open ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+        </div>
+
+        {open && (
+          <div className="voucher-picker__dropdown">
+            {loading && (
+              <div style={{ padding: 16, textAlign: 'center', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                Đang tải voucher...
+              </div>
+            )}
+            {!loading && vouchers.length === 0 && (
+              <div style={{ padding: 16, textAlign: 'center', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                Bạn chưa có voucher nào phù hợp 😊<br />
+                <span style={{ fontSize: '0.78rem' }}>Voucher miễn ship được gửi hàng tuần qua thông báo</span>
+              </div>
+            )}
+            {vouchers.map(v => {
+              const disabled = !v.eligible || v.already_used;
+              return (
+                <div
+                  key={v.id}
+                  className={`voucher-picker__item${disabled ? ' disabled' : ''}${selected?.id === v.id ? ' selected' : ''}`}
+                >
+                  {/* Left — click để chọn */}
+                  <div
+                    className="voucher-picker__item-left"
+                    style={{ cursor: disabled ? 'not-allowed' : 'pointer', flex: 1 }}
+                    onClick={() => {
+                      if (disabled) return;
+                      onSelect(v);
+                      setOpen(false);
+                    }}
+                  >
+                    <span className="voucher-picker__badge" style={{ background: TYPE_COLOR[v.discount_type] }}>
+                      {TYPE_LABEL[v.discount_type]}
+                    </span>
+                    <div>
+                      <div className="voucher-picker__code">{v.code}</div>
+                      <div className="voucher-picker__name">{v.name}</div>
+                      {v.min_order > 0 && (
+                        <div className="voucher-picker__desc">
+                          Đơn tối thiểu {fmt(v.min_order)}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Right */}
+                  <div className="voucher-picker__item-right" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                    {/* Số tiền giảm */}
+                    {v.discount_type === 'freeship' ? (
+                      <div className="voucher-picker__amount" style={{ color: 'var(--amber)' }}>Miễn ship</div>
+                    ) : (
+                      <div className="voucher-picker__amount" style={{ color: 'var(--emerald)' }}>
+                        -{fmt(v.discount_amount || v.discount_value)}
+                      </div>
+                    )}
+
+                    {/* Trạng thái */}
+                    {v.already_used && (
+                      <div style={{ fontSize: '0.72rem', color: 'var(--red)', fontWeight: 600 }}>Đã sử dụng</div>
+                    )}
+                    {!v.already_used && !v.eligible && (
+                      <div style={{ fontSize: '0.72rem', color: 'var(--amber)', fontWeight: 600 }}>Chưa đủ ĐK</div>
+                    )}
+                    {v.is_personal && (
+                      <div style={{ fontSize: '0.72rem', color: 'var(--accent)' }}>🎁 Của bạn</div>
+                    )}
+                    {selected?.id === v.id && <CheckCircle2 size={14} color="var(--emerald)" />}
+
+                    {/* ℹ️ Info button */}
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        setInfoVoucher({
+                          ...v,
+                          _onApply: () => { onSelect(v); setOpen(false); },
+                        });
+                      }}
+                      title="Xem thông tin voucher"
+                      style={{
+                        background: 'none', border: '1px solid var(--border)',
+                        borderRadius: 5, cursor: 'pointer',
+                        padding: '2px 7px', fontSize: '0.72rem',
+                        color: 'var(--text-muted)', transition: 'all 0.15s',
+                        display: 'flex', alignItems: 'center', gap: 3, marginTop: 2,
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)'; }}
+                    >
+                      ℹ️ Chi tiết
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </>
   );
 }
+
 
 export default function CheckoutPage() {
   const { cart, finalTotal, clearCart } = useCart();
