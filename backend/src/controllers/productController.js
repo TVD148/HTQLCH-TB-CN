@@ -56,29 +56,45 @@ const getProducts = async (req, res, next) => {
       price_desc: 'COALESCE(p.gia_khuyen_mai, p.gia_goc) DESC',
       rating:     'p.danh_gia_tb DESC',
       popular:    'p.luot_xem DESC',
+      bestseller: 'tong_da_ban DESC',
     };
     const orderBy = sortMap[sort] || 'p.ngay_tao DESC';
     const whereStr = where.join(' AND ');
+    const isBestseller = sort === 'bestseller';
+
+    // Bestseller: can LEFT JOIN them vao chi_tiet_don_hang (khong tinh don bi huy)
+    const bestsellJoin = isBestseller
+      ? `LEFT JOIN chi_tiet_don_hang ctdh ON ctdh.ma_san_pham = p.ma_san_pham
+         LEFT JOIN don_hang dh ON dh.ma_don_hang = ctdh.ma_don_hang AND dh.trang_thai != 'da_huy'`
+      : '';
+    const bestsellSelect = isBestseller
+      ? ', COALESCE(SUM(ctdh.so_luong), 0) AS tong_da_ban'
+      : '';
 
     const baseQuery = `
       FROM san_pham p
       LEFT JOIN danh_muc dm ON dm.ma_danh_muc = p.ma_danh_muc
       LEFT JOIN thuong_hieu th ON th.ma_thuong_hieu = p.ma_thuong_hieu
+      ${bestsellJoin}
       WHERE ${whereStr}
     `;
 
     const [countRows] = await db.query(`SELECT COUNT(DISTINCT p.ma_san_pham) AS total ${baseQuery}`, params);
     const total = countRows[0].total;
 
+    const groupBy = isBestseller ? 'GROUP BY p.ma_san_pham' : '';
+
     const [products] = await db.query(
-      `SELECT DISTINCT
+      `SELECT
               p.ma_san_pham AS id, p.ten_san_pham AS name, p.duong_dan AS slug,
               p.mo_ta_ngan AS short_desc, p.gia_goc AS price, p.gia_khuyen_mai AS sale_price,
               p.so_luong_ton AS stock_quantity, p.anh_dai_dien AS thumbnail,
               p.danh_gia_tb AS avg_rating, p.luot_xem AS view_count, p.noi_bat AS is_featured,
               dm.ma_danh_muc AS category_id, dm.ten_danh_muc AS category_name,
               th.ma_thuong_hieu AS brand_id, th.ten_thuong_hieu AS brand_name
+              ${bestsellSelect}
        ${baseQuery}
+       ${groupBy}
        ORDER BY ${orderBy}
        LIMIT ? OFFSET ?`,
       [...params, limitNum, offset]

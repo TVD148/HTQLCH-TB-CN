@@ -173,7 +173,7 @@ CREATE TABLE ma_giam_gia (
   ma_code             VARCHAR(50)   NOT NULL UNIQUE,
   ten_voucher         VARCHAR(150)  NOT NULL,
   mo_ta               TEXT          NULL,
-  loai_giam           ENUM('percent','fixed_amount') NOT NULL,
+  loai_giam           ENUM('percent','fixed_amount','freeship') NOT NULL DEFAULT 'fixed_amount',
   gia_tri_giam        DECIMAL(15,2) NOT NULL,
   giam_toi_da         DECIMAL(15,2) NULL    COMMENT 'Giam toi da (cho loai percent)',
   don_hang_toi_thieu  DECIMAL(15,2) NOT NULL DEFAULT 0,

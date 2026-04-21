@@ -39,7 +39,9 @@ export const orderApi = {
 };
 
 export const voucherApi = {
-  validate: (code, cart_total) => api.get(`/vouchers/validate/${code}`, { params: { cart_total } }),
+  validate:    (code, cart_total) => api.get(`/vouchers/validate/${code}`, { params: { cart_total } }),
+  getAvailable:(cart_total)       => api.get('/vouchers/available', { params: { cart_total } }),
+  sendWeekly:  (voucher_id)       => api.post('/vouchers/send-weekly', { voucher_id }),
 };
 
 export const wishlistApi = {

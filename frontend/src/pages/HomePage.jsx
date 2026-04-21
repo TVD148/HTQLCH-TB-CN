@@ -1,17 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Zap, ChevronRight, Shield, Truck, RefreshCw, Headphones, Star, ArrowRight, Laptop, Monitor, Mouse, HardDrive, Cpu, Wifi } from 'lucide-react';
+import { Zap, ChevronRight, Shield, Truck, RefreshCw, Headphones, Star, ArrowRight,
+         Laptop, Monitor, Mouse, HardDrive, Cpu, Wifi, TrendingUp, Clock, Award } from 'lucide-react';
 import { productApi, categoryApi } from '../api';
 import ProductCard from '../components/ProductCard';
 
 const CATEGORY_ICONS = {
-  'laptop': <Laptop size={22} />,
-  'dien-thoai': '📱',
-  'man-hinh': <Monitor size={22} />,
-  'phu-kien': <Mouse size={22} />,
-  'o-cung-ram': <HardDrive size={22} />,
-  'thiet-bi-mang': <Wifi size={22} />,
-  'pc-may-tinh-ban': <Cpu size={22} />,
+  'laptop':           <Laptop  size={22} />,
+  'dien-thoai':       '📱',
+  'man-hinh':         <Monitor size={22} />,
+  'phu-kien':         <Mouse   size={22} />,
+  'o-cung-ram':       <HardDrive size={22} />,
+  'thiet-bi-mang':    <Wifi   size={22} />,
+  'pc-may-tinh-ban':  <Cpu    size={22} />,
 };
 
 function CountdownTimer({ targetHours = 8 }) {
@@ -40,31 +41,62 @@ function CountdownTimer({ targetHours = 8 }) {
 }
 
 const FEATURES = [
-  { icon: <Shield size={22} />, title: 'Hàng chính hãng', desc: 'Bảo hành chính thức từ hãng 12-24 tháng', color: 'green' },
-  { icon: <Truck size={22} />,  title: 'Giao hàng nhanh', desc: 'Giao trong 2-3 ngày toàn quốc', color: 'blue' },
-  { icon: <RefreshCw size={22} />, title: 'Đổi trả 15 ngày', desc: 'Lỗi 1 đổi 1 trong 15 ngày đầu', color: 'amber' },
-  { icon: <Headphones size={22} />, title: 'Hỗ trợ 24/7', desc: 'Tư vấn kỹ thuật online mọi lúc', color: 'red' },
+  { icon: <Shield size={22} />,    title: 'Hàng chính hãng',  desc: 'Bảo hành chính thức từ hãng 12-24 tháng', color: 'green' },
+  { icon: <Truck size={22} />,     title: 'Giao hàng nhanh',  desc: 'Giao trong 2-3 ngày toàn quốc',          color: 'blue'  },
+  { icon: <RefreshCw size={22} />, title: 'Đổi trả 15 ngày',  desc: 'Lỗi 1 đổi 1 trong 15 ngày đầu',          color: 'amber' },
+  { icon: <Headphones size={22} />,title: 'Hỗ trợ 24/7',      desc: 'Tư vấn kỹ thuật online mọi lúc',         color: 'red'   },
+];
+
+const TABS = [
+  { key: 'new',        label: '🆕 Sản phẩm mới',  icon: <Clock   size={15} />, sort: 'newest',     featured: '' },
+  { key: 'bestseller', label: '🔥 Bán chạy nhất', icon: <TrendingUp size={15} />, sort: 'bestseller', featured: '' },
+  { key: 'featured',   label: '⭐ Nổi bật',        icon: <Award   size={15} />, sort: 'popular',    featured: '1' },
 ];
 
 export default function HomePage() {
-  const [featuredProducts, setFeaturedProducts] = useState([]);
-  const [newProducts,      setNewProducts]      = useState([]);
-  const [categories,       setCategories]       = useState([]);
-  const [loading,          setLoading]          = useState(true);
+  const [flashProducts, setFlashProducts] = useState([]);
+  const [categories,    setCategories]    = useState([]);
+  const [loading,       setLoading]       = useState(true);
+
+  // Tab state
+  const [activeTab, setActiveTab]       = useState('new');
+  const [tabProducts, setTabProducts]   = useState({});
+  const [tabLoading,  setTabLoading]    = useState(false);
+
   const navigate = useNavigate();
 
   useEffect(() => {
     document.title = 'TechStore – Thiết bị công nghệ chính hãng';
     Promise.all([
-      productApi.getAll({ featured: '1', limit: 8 }),
-      productApi.getAll({ sort: 'newest', limit: 8 }),
+      productApi.getAll({ featured: '1', limit: 4 }),
       categoryApi.getAll(),
-    ]).then(([featRes, newRes, catRes]) => {
-      setFeaturedProducts(featRes.data.data);
-      setNewProducts(newRes.data.data);
+    ]).then(([flashRes, catRes]) => {
+      setFlashProducts(flashRes.data.data);
       setCategories(catRes.data.data.filter(c => !c.parent_id).slice(0, 6));
     }).finally(() => setLoading(false));
   }, []);
+
+  const loadTab = useCallback(async (tabKey) => {
+    if (tabProducts[tabKey]) return; // Cached
+    setTabLoading(true);
+    try {
+      const tab = TABS.find(t => t.key === tabKey);
+      const params = { sort: tab.sort, limit: 5 };
+      if (tab.featured) params.featured = tab.featured;
+      const res = await productApi.getAll(params);
+      setTabProducts(prev => ({ ...prev, [tabKey]: res.data.data }));
+    } catch (_) {}
+    finally { setTabLoading(false); }
+  }, [tabProducts]);
+
+  useEffect(() => { loadTab('new'); }, []);
+
+  const handleTabChange = (key) => {
+    setActiveTab(key);
+    loadTab(key);
+  };
+
+  const fmt = (p) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(p);
 
   return (
     <div>
@@ -88,8 +120,8 @@ export default function HomePage() {
                 <button className="btn btn-primary btn-lg" onClick={() => navigate('/shop')}>
                   Mua sắm ngay <ArrowRight size={18} />
                 </button>
-                <button className="btn btn-outline btn-lg" onClick={() => navigate('/shop?featured=1')}>
-                  Xem sản phẩm hot
+                <button className="btn btn-outline btn-lg" onClick={() => navigate('/shop?sort=bestseller')}>
+                  Xem bán chạy 🔥
                 </button>
               </div>
               <div className="hero__stats">
@@ -104,7 +136,7 @@ export default function HomePage() {
 
             {/* Hero product showcase */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              {featuredProducts.slice(0, 2).map(p => (
+              {flashProducts.slice(0, 2).map(p => (
                 <Link key={p.id} to={`/shop/${p.slug}`} style={{
                   display: 'flex', gap: 14, padding: 16,
                   background: 'var(--surface-2)', border: '1px solid var(--border)',
@@ -122,7 +154,7 @@ export default function HomePage() {
                     <div style={{ fontSize: '0.82rem', color: 'var(--accent)', fontWeight: 600 }}>{p.brand_name}</div>
                     <div style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4, display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 1, overflow: 'hidden' }}>{p.name}</div>
                     <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--accent)' }}>
-                      {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(p.sale_price || p.price)}
+                      {fmt(p.sale_price || p.price)}
                     </div>
                   </div>
                   {p.sale_price && (
@@ -191,40 +223,58 @@ export default function HomePage() {
               <div className="spinner-wrap"><div className="spinner" /></div>
             ) : (
               <div className="products-grid">
-                {featuredProducts.slice(0, 4).map(p => <ProductCard key={p.id} product={p} />)}
+                {flashProducts.map(p => <ProductCard key={p.id} product={p} />)}
               </div>
             )}
           </div>
         </div>
       </section>
 
-      {/* ─── FEATURED ─────────────────────────────────── */}
+      {/* ─── PRODUCT TABS (Mới / Bán chạy / Nổi bật) ─── */}
       <section className="section">
         <div className="container">
-          <div className="section-header">
-            <div>
-              <h2 className="section-title">⭐ Sản phẩm nổi bật</h2>
-              <p className="section-subtitle">Được khách hàng đánh giá cao nhất</p>
+          {/* Tab header */}
+          <div className="product-tabs">
+            <div className="product-tabs__header">
+              {TABS.map(tab => (
+                <button
+                  key={tab.key}
+                  className={`product-tabs__btn${activeTab === tab.key ? ' active' : ''}`}
+                  onClick={() => handleTabChange(tab.key)}
+                >
+                  {tab.label}
+                </button>
+              ))}
+              <Link
+                to={`/shop?${activeTab === 'bestseller' ? 'sort=bestseller' : activeTab === 'featured' ? 'featured=1' : 'sort=newest'}`}
+                className="product-tabs__see-all"
+              >
+                Xem thêm <ChevronRight size={13} />
+              </Link>
             </div>
-            <Link to="/shop?featured=1" className="btn btn-outline btn-sm">Xem thêm <ChevronRight size={14} /></Link>
+
+            {/* Tab content */}
+            {tabLoading ? (
+              <div className="spinner-wrap"><div className="spinner" /></div>
+            ) : (
+              <div className="product-tabs__grid">
+                {(tabProducts[activeTab] || []).map(p => <ProductCard key={p.id} product={p} />)}
+                {(tabProducts[activeTab] || []).length === 0 && !tabLoading && (
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Đang tải...</p>
+                )}
+              </div>
+            )}
           </div>
-          {loading ? <div className="spinner-wrap"><div className="spinner" /></div> : (
-            <div className="products-grid">
-              {featuredProducts.map(p => <ProductCard key={p.id} product={p} />)}
-            </div>
-          )}
         </div>
       </section>
 
       {/* ─── PROMO BANNER ─────────────────────────────── */}
       <section className="section-sm">
         <div className="container">
-          <div style={{
-            display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20,
-          }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
             {[
-              { title: 'Laptop Gaming', desc: 'Hiệu năng vượt trội cho game thủ', color: '#3B82F6', emoji: '🎮', slug: 'laptop-gaming' },
-              { title: 'MacBook Pro M3', desc: 'Chip M3 Max — Sức mạnh không giới hạn', color: '#10B981', emoji: '💻', slug: 'macbook' },
+              { title: 'Laptop Gaming', desc: 'Hiệu năng vượt trội cho game thủ', color: '#3B82F6', emoji: '🎮' },
+              { title: 'MacBook Pro M3', desc: 'Chip M3 Max — Sức mạnh không giới hạn', color: '#10B981', emoji: '💻' },
             ].map(b => (
               <div key={b.title} onClick={() => navigate('/shop')} style={{
                 padding: '28px 32px', borderRadius: 'var(--radius-xl)', cursor: 'pointer',
@@ -242,24 +292,6 @@ export default function HomePage() {
               </div>
             ))}
           </div>
-        </div>
-      </section>
-
-      {/* ─── NEW ARRIVALS ─────────────────────────────── */}
-      <section className="section">
-        <div className="container">
-          <div className="section-header">
-            <div>
-              <h2 className="section-title">🆕 Sản phẩm mới nhất</h2>
-              <p className="section-subtitle">Cập nhật liên tục từ các thương hiệu hàng đầu</p>
-            </div>
-            <Link to="/shop?sort=newest" className="btn btn-outline btn-sm">Xem thêm <ChevronRight size={14} /></Link>
-          </div>
-          {loading ? <div className="spinner-wrap"><div className="spinner" /></div> : (
-            <div className="products-grid">
-              {newProducts.map(p => <ProductCard key={p.id} product={p} />)}
-            </div>
-          )}
         </div>
       </section>
 
@@ -282,13 +314,14 @@ export default function HomePage() {
                 <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--amber)' }}>Chương trình tích điểm</h3>
               </div>
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: 1.7, maxWidth: 500 }}>
-                Tích điểm với mỗi đơn hàng và đổi điểm lấy ưu đãi. <strong style={{ color: 'var(--text-primary)' }}>1 điểm = 1.000đ</strong>. Mua 1 triệu được 10 điểm, tích lũy không giới hạn!
+                Mỗi <strong style={{ color: 'var(--text-primary)' }}>100.000đ</strong> mua hàng = <strong style={{ color: 'var(--amber)' }}>1 điểm</strong>.
+                Dùng điểm để giảm tiền khi thanh toán: <strong style={{ color: 'var(--text-primary)' }}>1 điểm = 1.000đ</strong>. Tích lũy không giới hạn!
               </p>
-              <div style={{ display: 'flex', gap: 24, marginTop: 20 }}>
+              <div style={{ display: 'flex', gap: 32, marginTop: 20 }}>
                 {[
-                  { v: '1%', l: 'mỗi đơn hàng' },
-                  { v: '1K', l: 'mỗi 1 điểm' },
-                  { v: '∞', l: 'Không hết hạn' },
+                  { v: '100K', l: '= 1 điểm' },
+                  { v: '1K',   l: 'mỗi điểm' },
+                  { v: '∞',    l: 'Không hết hạn' },
                 ].map(s => (
                   <div key={s.l}>
                     <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--amber)' }}>{s.v}</div>
@@ -304,7 +337,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Rating testimonial strip */}
+      {/* ─── TESTIMONIALS ─────────────────────────────── */}
       <section className="section-sm">
         <div className="container">
           <div style={{ textAlign: 'center', marginBottom: 28 }}>
@@ -312,9 +345,9 @@ export default function HomePage() {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>
             {[
-              { name: 'Nguyễn Văn An', comment: 'Laptop ASUS ROG tuyệt vời, giao hàng nhanh, hàng chính hãng đúng như mô tả. Shop tư vấn nhiệt tình!', rating: 5 },
-              { name: 'Trần Thị Bình', comment: 'Mua màn hình Samsung Odyssey G7, màu đẹp, cong rất thích. Sẽ ủng hộ TechStore lần sau.', rating: 5 },
-              { name: 'Lê Văn Cường',  comment: 'Giá tốt nhất thị trường, bảo hành rõ ràng, nhân viên hỗ trợ kỹ thuật rất giỏi.', rating: 4 },
+              { name: 'Nguyễn Văn An',  comment: 'Laptop ASUS ROG tuyệt vời, giao hàng nhanh, hàng chính hãng đúng như mô tả. Shop tư vấn nhiệt tình!', rating: 5 },
+              { name: 'Trần Thị Bình',  comment: 'Mua màn hình Samsung Odyssey G7, màu đẹp, cong rất thích. Sẽ ủng hộ TechStore lần sau.', rating: 5 },
+              { name: 'Lê Văn Cường',   comment: 'Giá tốt nhất thị trường, bảo hành rõ ràng, nhân viên hỗ trợ kỹ thuật rất giỏi.', rating: 4 },
             ].map((r, i) => (
               <div key={i} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: 20 }}>
                 <div className="stars" style={{ marginBottom: 10 }}>

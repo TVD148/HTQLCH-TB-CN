@@ -20,6 +20,8 @@ import ComparePage      from '../pages/ComparePage';
 import WarrantyPage     from '../pages/WarrantyPage';
 import ProfilePage      from '../pages/ProfilePage';
 import NotFoundPage     from '../pages/NotFoundPage';
+import AboutPage        from '../pages/AboutPage';
+import ContactPage      from '../pages/ContactPage';
 
 // Admin Pages
 import AdminDashboard   from '../pages/admin/AdminDashboard';
@@ -56,6 +58,8 @@ function AppRoutes() {
         <Route path="/shop/:slug" element={<ProductDetailPage />} />
         <Route path="/cart" element={<CartPage />} />
         <Route path="/compare" element={<ComparePage />} />
+        <Route path="/about"   element={<AboutPage />} />
+        <Route path="/contact" element={<ContactPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
 

@@ -1,70 +1,78 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, NavLink } from 'react-router-dom';
-import { ShoppingCart, Heart, Bell, Search, Zap, User, LogOut, Package, Shield, ChevronDown, Sun, Moon } from 'lucide-react';
+import { ShoppingCart, Heart, Bell, Search, Zap, User, LogOut, Package, Shield,
+         ChevronDown, Sun, Moon, Menu, X, LayoutGrid } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { useTheme } from '../context/ThemeContext';
-import { notificationApi, wishlistApi } from '../api';
+import { categoryApi, notificationApi, wishlistApi } from '../api';
 
 export default function Header() {
   const { user, logout, isAdmin } = useAuth();
   const { cart } = useCart();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
-  const [search, setSearch]   = useState('');
-  const [scrolled, setScrolled] = useState(false);
+
+  const [search, setSearch]       = useState('');
   const [notifCount, setNotifCount] = useState(0);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const menuRef = useRef(null);
-  
-  const [bounce, setBounce] = useState(false);
+  const [showCatMenu, setShowCatMenu]   = useState(false);
+  const [categories, setCategories]      = useState([]);
   const [wishlistCount, setWishlistCount] = useState(0);
+  const [bounce, setBounce]       = useState(false);
+  const [scrolled, setScrolled]   = useState(false);
+  const menuRef    = useRef(null);
+  const catMenuRef = useRef(null);
   const initialMount = useRef(true);
 
+  // Scroll shadow
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 10);
+    const onScroll = () => setScrolled(window.scrollY > 4);
     window.addEventListener('scroll', onScroll);
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
+  // Load categories for dropdown
   useEffect(() => {
-    if (user) {
-      notificationApi.getAll()
-        .then(r => setNotifCount(r.data.unread || 0))
-        .catch(() => {});
-    }
+    categoryApi.getAll().then(r => setCategories(r.data.data.filter(c => !c.parent_id).slice(0, 12)))
+      .catch(() => {});
+  }, []);
+
+  // Notifications
+  useEffect(() => {
+    if (user) notificationApi.getAll().then(r => setNotifCount(r.data.unread || 0)).catch(() => {});
   }, [user]);
 
-  // Close menu on outside click
+  // Close menus on outside click
   useEffect(() => {
     const handler = (e) => {
       if (menuRef.current && !menuRef.current.contains(e.target)) setShowUserMenu(false);
+      if (catMenuRef.current && !catMenuRef.current.contains(e.target)) setShowCatMenu(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  // Cart bounce
   useEffect(() => {
     if (initialMount.current) { initialMount.current = false; return; }
     if (cart.item_count > 0) {
       setBounce(true);
-      const timer = setTimeout(() => setBounce(false), 400);
-      return () => clearTimeout(timer);
+      const t = setTimeout(() => setBounce(false), 400);
+      return () => clearTimeout(t);
     }
   }, [cart.item_count]);
 
+  // Wishlist count
   useEffect(() => {
-    if (user) {
-      wishlistApi.getAll().then(res => setWishlistCount(res.data.data.length)).catch(() => {});
-    } else {
-      setWishlistCount(0);
-    }
+    if (user) wishlistApi.getAll().then(r => setWishlistCount(r.data.data.length)).catch(() => {});
+    else setWishlistCount(0);
   }, [user]);
 
   useEffect(() => {
-    const handler = () => { if (user) wishlistApi.getAll().then(res => setWishlistCount(res.data.data.length)).catch(() => {}); };
-    window.addEventListener('wishlistChanged', handler);
-    return () => window.removeEventListener('wishlistChanged', handler);
+    const h = () => { if (user) wishlistApi.getAll().then(r => setWishlistCount(r.data.data.length)).catch(() => {}); };
+    window.addEventListener('wishlistChanged', h);
+    return () => window.removeEventListener('wishlistChanged', h);
   }, [user]);
 
   const handleSearch = (e) => {
@@ -78,123 +86,168 @@ export default function Header() {
     navigate('/');
   };
 
+  const CAT_ICONS = { laptop:'💻', 'dien-thoai':'📱', 'man-hinh':'🖥️', 'phu-kien':'🖱️',
+    'o-cung-ram':'💾', 'thiet-bi-mang':'📡', 'pc-may-tinh-ban':'🖥️',
+    'laptop-gaming':'🎮', 'laptop-van-phong':'📋', 'laptop-do-hoa':'🎨',
+    'chuot-ban-phim':'⌨️', 'tai-nghe':'🎧', default: '📦' };
+
   return (
-    <header className={`header ${scrolled ? 'scrolled' : ''}`}>
-      <div className="container header__inner">
-        {/* Logo */}
-        <Link to="/" className="header__logo">
-          <div className="header__logo-icon">
-            <Zap size={18} color="#fff" strokeWidth={2.5} />
-          </div>
-          TechStore
-        </Link>
+    <header className={`header-v2 ${scrolled ? 'scrolled' : ''}`}>
+      {/* ── ROW 1: Logo | Search | Actions ─────────────────── */}
+      <div className="header-v2__top">
+        <div className="container header-v2__top-inner">
 
-        {/* Nav links */}
-        <nav className="header__nav">
-          <NavLink to="/"     className={({ isActive }) => `header__nav-link${isActive ? ' active' : ''}`}>Trang chủ</NavLink>
-          <NavLink to="/shop" className={({ isActive }) => `header__nav-link${isActive ? ' active' : ''}`}>Sản phẩm</NavLink>
-          <NavLink to="/shop?featured=1" className="header__nav-link">Nổi bật</NavLink>
-          <NavLink to="/compare" className={({ isActive }) => `header__nav-link${isActive ? ' active' : ''}`}>So sánh</NavLink>
-        </nav>
+          {/* Logo */}
+          <Link to="/" className="header-v2__logo">
+            <div className="header-v2__logo-icon"><Zap size={16} color="#fff" strokeWidth={2.5} /></div>
+            <span>TechStore</span>
+          </Link>
 
-        {/* Search */}
-        <div className="header__search">
-          <form onSubmit={handleSearch}>
+          {/* Search Bar */}
+          <form className="header-v2__search" onSubmit={handleSearch}>
             <input
               type="text"
               placeholder="Tìm laptop, chuột, màn hình..."
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
-            <button type="submit" className="header__search-btn">
-              <Search size={14} />
+            <button type="submit" className="header-v2__search-btn">
+              <Search size={16} />
             </button>
           </form>
-        </div>
 
-        {/* Actions */}
-        <div className="header__actions">
-          {/* Theme Toggle */}
-          <button onClick={toggleTheme} className="header__icon-btn" title="Đổi giao diện">
-            {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
-          </button>
+          {/* Right Actions */}
+          <div className="header-v2__actions">
+            {/* Theme */}
+            <button onClick={toggleTheme} className="header-v2__icon-btn" title="Đổi giao diện">
+              {theme === 'light' ? <Moon size={17} /> : <Sun size={17} />}
+            </button>
 
-          {/* Wishlist */}
-          {user && (
-            <Link to="/wishlist" className="header__icon-btn" title="Yêu thích">
-              <Heart size={18} />
-              {wishlistCount > 0 && <span className="header__badge">{wishlistCount}</span>}
+            {/* Wishlist */}
+            {user && (
+              <Link to="/wishlist" className="header-v2__icon-btn" title="Yêu thích">
+                <Heart size={17} />
+                {wishlistCount > 0 && <span className="header-v2__badge">{wishlistCount}</span>}
+              </Link>
+            )}
+
+            {/* Notifications */}
+            {user && (
+              <Link to="/profile" className="header-v2__icon-btn" title="Thông báo">
+                <Bell size={17} />
+                {notifCount > 0 && <span className="header-v2__badge">{notifCount}</span>}
+              </Link>
+            )}
+
+            {/* Cart */}
+            <Link to="/cart" className={`header-v2__cart-btn ${bounce ? 'animate-cart-bounce' : ''}`} title="Giỏ hàng">
+              <ShoppingCart size={17} />
+              <span>Giỏ hàng</span>
+              {cart.item_count > 0 && <span className="header-v2__badge">{cart.item_count}</span>}
             </Link>
-          )}
 
-          {/* Notifications */}
-          {user && (
-            <Link to="/profile" className="header__icon-btn" title="Thông báo">
-              <Bell size={18} />
-              {notifCount > 0 && <span className="header__badge">{notifCount}</span>}
-            </Link>
-          )}
-
-          {/* Cart */}
-          <Link to="/cart" className={`header__icon-btn ${bounce ? 'animate-cart-bounce' : ''}`} title="Giỏ hàng">
-            <ShoppingCart size={18} />
-            {cart.item_count > 0 && <span className="header__badge">{cart.item_count}</span>}
-          </Link>
-
-          {/* User */}
-          {user ? (
-            <div style={{ position: 'relative' }} ref={menuRef}>
-              <div className="header__user" onClick={() => setShowUserMenu(v => !v)}>
-                <div className="header__avatar">{user.name?.charAt(0).toUpperCase()}</div>
-                <span style={{ maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {user.name?.split(' ').pop()}
-                </span>
-                <ChevronDown size={14} />
-              </div>
-              {showUserMenu && (
-                <div style={{
-                  position: 'absolute', top: 'calc(100% + 8px)', right: 0, minWidth: 200,
-                  background: 'var(--surface-2)', border: '1px solid var(--border)',
-                  borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-lg)',
-                  overflow: 'hidden', zIndex: 100,
-                }}>
-                  <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
-                    <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{user.name}</div>
-                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{user.email}</div>
-                    {user.loyalty_points > 0 && (
-                      <div style={{ fontSize: '0.78rem', color: 'var(--amber)', marginTop: 4 }}>
-                        🎯 {user.loyalty_points} điểm tích lũy
-                      </div>
-                    )}
-                  </div>
-                  {[
-                    { to: '/profile',  icon: <User size={14} />,    label: 'Hồ sơ của tôi' },
-                    { to: '/orders',   icon: <Package size={14} />,  label: 'Đơn hàng' },
-                    { to: '/warranty', icon: <Shield size={14} />,   label: 'Bảo hành' },
-                    ...(isAdmin ? [{ to: '/admin', icon: null, label: '⚙️ Quản trị' }] : []),
-                  ].map(item => (
-                    <Link key={item.to} to={item.to} onClick={() => setShowUserMenu(false)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', fontSize: '0.88rem', color: 'var(--text-secondary)', transition: 'background 0.15s' }}
-                      onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-3)'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                    >
-                      {item.icon} {item.label}
-                    </Link>
-                  ))}
-                  <button onClick={handleLogout}
-                    style={{ display: 'flex', width: '100%', alignItems: 'center', gap: 10, padding: '10px 16px', fontSize: '0.88rem', color: 'var(--red)', background: 'none', border: 'none', borderTop: '1px solid var(--border)', cursor: 'pointer' }}
-                  >
-                    <LogOut size={14} /> Đăng xuất
-                  </button>
+            {/* User */}
+            {user ? (
+              <div style={{ position: 'relative' }} ref={menuRef}>
+                <div className="header-v2__user" onClick={() => setShowUserMenu(v => !v)}>
+                  <div className="header-v2__avatar">{user.name?.charAt(0).toUpperCase()}</div>
+                  <span className="header-v2__username">{user.name?.split(' ').pop()}</span>
+                  <ChevronDown size={13} />
                 </div>
-              )}
-            </div>
-          ) : (
-            <div style={{ display: 'flex', gap: 8 }}>
-              <Link to="/login" className="btn btn-ghost btn-sm">Đăng nhập</Link>
-              <Link to="/register" className="btn btn-primary btn-sm">Đăng ký</Link>
-            </div>
-          )}
+                {showUserMenu && (
+                  <div className="header-v2__dropdown">
+                    <div className="header-v2__dropdown-header">
+                      <div className="header-v2__dropdown-name">{user.name}</div>
+                      <div className="header-v2__dropdown-email">{user.email}</div>
+                      {user.loyalty_points > 0 && (
+                        <div className="header-v2__dropdown-points">
+                          ⭐ {user.loyalty_points} điểm tích lũy
+                        </div>
+                      )}
+                    </div>
+                    {[
+                      { to: '/profile',  icon: <User size={14} />,    label: 'Hồ sơ của tôi' },
+                      { to: '/orders',   icon: <Package size={14} />,  label: 'Đơn hàng' },
+                      { to: '/warranty', icon: <Shield size={14} />,   label: 'Bảo hành' },
+                      ...(isAdmin ? [{ to: '/admin', icon: null, label: '⚙️ Quản trị' }] : []),
+                    ].map(item => (
+                      <Link key={item.to} to={item.to} className="header-v2__dropdown-item"
+                        onClick={() => setShowUserMenu(false)}>
+                        {item.icon} {item.label}
+                      </Link>
+                    ))}
+                    <button onClick={handleLogout} className="header-v2__dropdown-logout">
+                      <LogOut size={14} /> Đăng xuất
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', gap: 8 }}>
+                <Link to="/login"    className="btn btn-ghost btn-sm">Đăng nhập</Link>
+                <Link to="/register" className="btn btn-primary btn-sm">Đăng ký</Link>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── ROW 2: Categories | Nav Links ───────────────────── */}
+      <div className="header-v2__nav-bar">
+        <div className="container header-v2__nav-inner">
+
+          {/* Categories Dropdown */}
+          <div className="header-v2__cat-wrap" ref={catMenuRef}>
+            <button
+              className="header-v2__cat-btn"
+              onClick={() => setShowCatMenu(v => !v)}
+            >
+              {showCatMenu ? <X size={16} /> : <Menu size={16} />}
+              <span>DANH MỤC</span>
+            </button>
+
+            {showCatMenu && (
+              <div className="header-v2__cat-menu">
+                {categories.map(cat => (
+                  <Link
+                    key={cat.id}
+                    to={`/shop?category=${cat.id}`}
+                    className="header-v2__cat-item"
+                    onClick={() => setShowCatMenu(false)}
+                  >
+                    <span className="header-v2__cat-icon">
+                      {CAT_ICONS[cat.slug] || CAT_ICONS.default}
+                    </span>
+                    <span>{cat.name}</span>
+                    {cat.product_count > 0 && (
+                      <span className="header-v2__cat-count">{cat.product_count}</span>
+                    )}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Nav Links */}
+          <nav className="header-v2__nav">
+            <NavLink to="/"
+              className={({ isActive }) => `header-v2__nav-link${isActive ? ' active' : ''}`}
+              end
+            >Trang chủ</NavLink>
+            <NavLink to="/shop"
+              className={({ isActive }) => `header-v2__nav-link${isActive ? ' active' : ''}`}
+            >Sản phẩm</NavLink>
+            <NavLink to="/about"
+              className={({ isActive }) => `header-v2__nav-link${isActive ? ' active' : ''}`}
+            >Giới thiệu</NavLink>
+            <NavLink to="/contact"
+              className={({ isActive }) => `header-v2__nav-link${isActive ? ' active' : ''}`}
+            >Liên hệ</NavLink>
+            <NavLink to="/compare"
+              className={({ isActive }) => `header-v2__nav-link${isActive ? ' active' : ''}`}
+            >So sánh</NavLink>
+          </nav>
+
         </div>
       </div>
     </header>
