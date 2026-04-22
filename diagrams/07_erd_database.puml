@@ -10,279 +10,344 @@ skinparam entity {
   HeaderFontColor white
 }
 
-'============ USERS ============
-entity "USERS" as USERS {
-  *id : INT <<PK, AUTO_INCREMENT>>
+'============ NGUOI_DUNG ============
+entity "nguoi_dung" as ND {
+  *ma_nguoi_dung : INT <<PK, AUTO_INCREMENT>>
   --
-  *name : VARCHAR(100)
+  *ho_ten : VARCHAR(100)
+  ten : VARCHAR(50)
+  ho : VARCHAR(50)
+  ten_dem : VARCHAR(100)
   *email : VARCHAR(150) <<UNIQUE>>
-  *password_hash : VARCHAR(255)
-  *role : ENUM('admin','staff','user') DEFAULT 'user'
-  phone : VARCHAR(20)
-  address : TEXT
-  *loyalty_points : INT DEFAULT 0
-  *is_active : TINYINT(1) DEFAULT 1
-  avatar_url : VARCHAR(255)
-  email_verified_at : TIMESTAMP
-  *created_at : TIMESTAMP DEFAULT NOW()
-  *updated_at : TIMESTAMP DEFAULT NOW()
+  *mat_khau_ma_hoa : VARCHAR(255)
+  *vai_tro : ENUM('admin','staff','user') DEFAULT 'user'
+  so_dien_thoai : VARCHAR(20)
+  dia_chi : TEXT
+  anh_dai_dien : VARCHAR(255)
+  *diem_tich_luy : INT DEFAULT 0
+  *trang_thai : TINYINT(1) DEFAULT 1
+  *ngay_tao : TIMESTAMP
+  *ngay_cap_nhat : TIMESTAMP
 }
 
-'============ CATEGORIES ============
-entity "CATEGORIES" as CATS {
-  *id : INT <<PK>>
+'============ DANH_MUC ============
+entity "danh_muc" as DM {
+  *ma_danh_muc : INT <<PK>>
   --
-  *name : VARCHAR(100)
-  *slug : VARCHAR(120) <<UNIQUE>>
-  description : TEXT
-  image_url : VARCHAR(255)
-  parent_id : INT <<FK, NULL>>
-  *is_active : TINYINT(1) DEFAULT 1
-  sort_order : INT DEFAULT 0
-  *created_at : TIMESTAMP
+  *ten_danh_muc : VARCHAR(100)
+  *duong_dan : VARCHAR(120) <<UNIQUE>>
+  mo_ta : TEXT
+  hinh_anh : VARCHAR(255)
+  ma_cha : INT <<FK, NULL>>
+  *trang_thai : TINYINT(1) DEFAULT 1
+  thu_tu : INT DEFAULT 0
+  so_san_pham : INT DEFAULT 0
+  *ngay_tao : TIMESTAMP
 }
 
-'============ BRANDS ============
-entity "BRANDS" as BRANDS {
-  *id : INT <<PK>>
+'============ THUONG_HIEU ============
+entity "thuong_hieu" as TH {
+  *ma_thuong_hieu : INT <<PK>>
   --
-  *name : VARCHAR(100) <<UNIQUE>>
-  slug : VARCHAR(120)
-  logo_url : VARCHAR(255)
-  country : VARCHAR(50)
-  *is_active : TINYINT(1) DEFAULT 1
+  *ten_thuong_hieu : VARCHAR(100) <<UNIQUE>>
+  *duong_dan : VARCHAR(120)
+  logo : VARCHAR(255)
+  xuat_xu : VARCHAR(50)
+  *trang_thai : TINYINT(1) DEFAULT 1
 }
 
-'============ PRODUCTS ============
-entity "PRODUCTS" as PRODS {
-  *id : INT <<PK>>
+'============ SAN_PHAM ============
+entity "san_pham" as SP {
+  *ma_san_pham : INT <<PK>>
   --
-  *name : VARCHAR(200)
-  *slug : VARCHAR(220) <<UNIQUE>>
-  description : TEXT
-  short_desc : TEXT
-  *price : DECIMAL(15,2)
-  sale_price : DECIMAL(15,2)
-  *stock_quantity : INT DEFAULT 0
-  min_stock_alert : INT DEFAULT 5
-  *category_id : INT <<FK>>
-  *brand_id : INT <<FK>>
-  thumbnail : VARCHAR(255)
-  *is_active : TINYINT(1) DEFAULT 1
-  *is_featured : TINYINT(1) DEFAULT 0
-  view_count : INT DEFAULT 0
-  avg_rating : DECIMAL(3,2) DEFAULT 0
-  *created_at : TIMESTAMP
-  *updated_at : TIMESTAMP
+  *ten_san_pham : VARCHAR(200)
+  *duong_dan : VARCHAR(220) <<UNIQUE>>
+  mo_ta : TEXT
+  mo_ta_ngan : TEXT
+  *gia_goc : DECIMAL(15,2)
+  gia_khuyen_mai : DECIMAL(15,2)
+  *so_luong_ton : INT DEFAULT 0
+  canh_bao_ton_toi_thieu : INT DEFAULT 5
+  *ma_danh_muc : INT <<FK>>
+  *ma_thuong_hieu : INT <<FK>>
+  anh_dai_dien : VARCHAR(255)
+  *trang_thai : TINYINT(1) DEFAULT 1
+  *noi_bat : TINYINT(1) DEFAULT 0
+  luot_xem : INT DEFAULT 0
+  danh_gia_tb : DECIMAL(3,2) DEFAULT 0
+  thoi_gian_bao_hanh : INT DEFAULT 12
+  phi_van_chuyen : DECIMAL(12,0) DEFAULT 30000
+  *ngay_tao : TIMESTAMP
+  *ngay_cap_nhat : TIMESTAMP
 }
 
-'============ PRODUCT_SPECS ============
-entity "PRODUCT_SPECS" as SPECS {
-  *id : INT <<PK>>
+'============ ANH_SAN_PHAM ============
+entity "anh_san_pham" as ASP {
+  *ma_anh : INT <<PK>>
   --
-  *product_id : INT <<FK>>
-  *spec_name : VARCHAR(100)
-  *spec_value : VARCHAR(255)
-  unit : VARCHAR(50)
-  sort_order : INT DEFAULT 0
+  *ma_san_pham : INT <<FK>>
+  *url_anh : VARCHAR(255)
+  *la_anh_chinh : TINYINT(1) DEFAULT 0
+  thu_tu : INT DEFAULT 0
 }
 
-'============ PRODUCT_IMAGES ============
-entity "PRODUCT_IMAGES" as IMGS {
-  *id : INT <<PK>>
+'============ THONG_SO_KY_THUAT ============
+entity "thong_so_ky_thuat" as TSKT {
+  *ma_thong_so : INT <<PK>>
   --
-  *product_id : INT <<FK>>
-  *image_url : VARCHAR(255)
-  *is_primary : TINYINT(1) DEFAULT 0
-  sort_order : INT DEFAULT 0
+  *ma_san_pham : INT <<FK>>
+  *ten_thong_so : VARCHAR(100)
+  *gia_tri : VARCHAR(255)
+  don_vi : VARCHAR(50)
+  thu_tu : INT DEFAULT 0
 }
 
-'============ CARTS ============
-entity "CARTS" as CARTS {
-  *id : INT <<PK>>
+'============ YEU_THICH ============
+entity "yeu_thich" as YT {
+  *ma_yeu_thich : INT <<PK>>
   --
-  *user_id : INT <<FK, UNIQUE>>
-  *created_at : TIMESTAMP
-  *updated_at : TIMESTAMP
+  *ma_nguoi_dung : INT <<FK>>
+  *ma_san_pham : INT <<FK>>
+  *ngay_them : TIMESTAMP
+  <<UNIQUE (ma_nguoi_dung, ma_san_pham)>>
 }
 
-'============ CART_ITEMS ============
-entity "CART_ITEMS" as CITEMS {
-  *id : INT <<PK>>
+'============ GIO_HANG ============
+entity "gio_hang" as GH {
+  *ma_gio_hang : INT <<PK>>
   --
-  *cart_id : INT <<FK>>
-  *product_id : INT <<FK>>
-  *quantity : INT
-  *unit_price : DECIMAL(15,2)
-  *added_at : TIMESTAMP DEFAULT NOW()
-  <<UNIQUE (cart_id, product_id)>>
+  *ma_nguoi_dung : INT <<FK, UNIQUE>>
+  *ngay_tao : TIMESTAMP
 }
 
-'============ VOUCHERS ============
-entity "VOUCHERS" as VCHS {
-  *id : INT <<PK>>
+'============ CHI_TIET_GIO_HANG ============
+entity "chi_tiet_gio_hang" as CTGH {
+  *ma_chi_tiet : INT <<PK>>
   --
-  *code : VARCHAR(50) <<UNIQUE>>
-  *name : VARCHAR(150)
-  description : TEXT
-  *discount_type : ENUM('percent','fixed_amount')
-  *discount_value : DECIMAL(15,2)
-  max_discount_amount : DECIMAL(15,2)
-  min_order_value : DECIMAL(15,2) DEFAULT 0
-  *max_uses : INT DEFAULT 1
-  *used_count : INT DEFAULT 0
-  max_uses_per_user : INT DEFAULT 1
-  *is_active : TINYINT(1) DEFAULT 1
-  *start_date : TIMESTAMP
-  *expired_at : TIMESTAMP
-  *created_at : TIMESTAMP
+  *ma_gio_hang : INT <<FK>>
+  *ma_san_pham : INT <<FK>>
+  *so_luong : INT DEFAULT 1
+  *don_gia : DECIMAL(15,2)
+  *ngay_them : TIMESTAMP
+  <<UNIQUE (ma_gio_hang, ma_san_pham)>>
 }
 
-'============ VOUCHER_USAGES ============
-entity "VOUCHER_USAGES" as VUSAGES {
-  *id : INT <<PK>>
+'============ MA_GIAM_GIA ============
+entity "ma_giam_gia" as MGG {
+  *ma_voucher : INT <<PK>>
   --
-  *voucher_id : INT <<FK>>
-  *user_id : INT <<FK>>
-  *order_id : INT <<FK>>
-  *discount_applied : DECIMAL(15,2)
-  *used_at : TIMESTAMP DEFAULT NOW()
+  *ma_code : VARCHAR(50) <<UNIQUE>>
+  *ten_voucher : VARCHAR(150)
+  mo_ta : TEXT
+  *loai_giam : ENUM('percent','fixed_amount','freeship')
+  *gia_tri_giam : DECIMAL(15,2)
+  giam_toi_da : DECIMAL(15,2)
+  don_hang_toi_thieu : DECIMAL(15,2) DEFAULT 0
+  gioi_han_su_dung : INT
+  da_su_dung : INT DEFAULT 0
+  *loai_voucher : ENUM('product','shipping','promo_code') DEFAULT 'product'
+  *trang_thai : TINYINT(1) DEFAULT 1
+  ngay_bat_dau : TIMESTAMP
+  het_han : TIMESTAMP
+  *ngay_tao : TIMESTAMP
 }
 
-'============ ORDERS ============
-entity "ORDERS" as ORDERS {
-  *id : INT <<PK>>
+'============ VOUCHER_NGUOI_DUNG ============
+entity "voucher_nguoi_dung" as VND {
+  *ma : INT <<PK>>
   --
-  *user_id : INT <<FK>>
-  *order_code : VARCHAR(50) <<UNIQUE>>
-  *subtotal : DECIMAL(15,2)
-  discount_amount : DECIMAL(15,2) DEFAULT 0
-  shipping_fee : DECIMAL(15,2) DEFAULT 0
-  *total_amount : DECIMAL(15,2)
-  voucher_id : INT <<FK, NULL>>
-  loyalty_points_used : INT DEFAULT 0
-  loyalty_points_earned : INT DEFAULT 0
-  *status : ENUM('pending','confirmed','shipping','delivered','cancelled','refunded')
-  *payment_method : ENUM('cod','bank_transfer','momo','loyalty_points')
-  *payment_status : ENUM('unpaid','paid','refunded') DEFAULT 'unpaid'
-  *receiver_name : VARCHAR(100)
-  *receiver_phone : VARCHAR(20)
-  *shipping_address : TEXT
-  note : TEXT
-  *created_at : TIMESTAMP
-  *updated_at : TIMESTAMP
+  *ma_voucher : INT <<FK>>
+  *ma_nguoi_dung : INT <<FK>>
+  *da_su_dung : TINYINT(1) DEFAULT 0
+  ngay_su_dung : TIMESTAMP
+  *ngay_cap : TIMESTAMP
 }
 
-'============ ORDER_ITEMS ============
-entity "ORDER_ITEMS" as OITEMS {
-  *id : INT <<PK>>
+'============ DON_HANG ============
+entity "don_hang" as DH {
+  *ma_don_hang : INT <<PK>>
   --
-  *order_id : INT <<FK>>
-  *product_id : INT <<FK>>
-  *product_name : VARCHAR(200)
-  *product_thumbnail : VARCHAR(255)
-  *unit_price : DECIMAL(15,2)
-  *quantity : INT
-  *subtotal : DECIMAL(15,2)
+  *ma_nguoi_dung : INT <<FK>>
+  *ma_code : VARCHAR(50) <<UNIQUE>>
+  *tam_tinh : DECIMAL(15,2)
+  *so_tien_giam : DECIMAL(15,2) DEFAULT 0
+  *phi_van_chuyen : DECIMAL(15,2) DEFAULT 0
+  so_tien_giam_ship : DECIMAL(15,2) DEFAULT 0
+  *tong_tien : DECIMAL(15,2)
+  ma_voucher : INT <<FK, NULL>>
+  ma_voucher_ship : INT <<FK, NULL>>
+  diem_su_dung : INT DEFAULT 0
+  diem_tich_duoc : INT DEFAULT 0
+  *trang_thai : ENUM('cho_xac_nhan','da_xac_nhan',\n'dang_giao','da_giao','da_huy','hoan_tien')
+  *phuong_thuc_tt : ENUM('tien_mat','chuyen_khoan',\n'momo','diem_tich_luy')
+  *trang_thai_tt : ENUM('chua_tt','da_tt','da_hoan_tien')
+  *ten_nguoi_nhan : VARCHAR(100)
+  *sdt_nguoi_nhan : VARCHAR(20)
+  *dia_chi_giao_hang : TEXT
+  ghi_chu : TEXT
+  *ngay_tao : TIMESTAMP
 }
 
-'============ REVIEWS ============
-entity "REVIEWS" as REVIEWS {
-  *id : INT <<PK>>
+'============ CHI_TIET_DON_HANG ============
+entity "chi_tiet_don_hang" as CTDH {
+  *ma_chi_tiet : INT <<PK>>
   --
-  *user_id : INT <<FK>>
-  *product_id : INT <<FK>>
-  order_item_id : INT <<FK, NULL>>
-  *rating : TINYINT(1) CHECK(1-5)
-  comment : TEXT
-  *is_approved : TINYINT(1) DEFAULT 0
-  *created_at : TIMESTAMP
+  *ma_don_hang : INT <<FK>>
+  *ma_san_pham : INT <<FK>>
+  *ten_san_pham : VARCHAR(200)
+  anh_san_pham : VARCHAR(255)
+  *don_gia : DECIMAL(15,2)
+  *so_luong : INT
+  *thanh_tien : DECIMAL(15,2)
 }
 
-'============ WISHLISTS ============
-entity "WISHLISTS" as WISH {
-  *id : INT <<PK>>
+'============ LICH_SU_VOUCHER ============
+entity "lich_su_voucher" as LSV {
+  *ma_lich_su : INT <<PK>>
   --
-  *user_id : INT <<FK>>
-  *product_id : INT <<FK>>
-  *created_at : TIMESTAMP
-  <<UNIQUE (user_id, product_id)>>
+  *ma_voucher : INT <<FK>>
+  *ma_nguoi_dung : INT <<FK>>
+  *ma_don_hang : INT <<FK>>
+  *so_tien_giam : DECIMAL(15,2)
+  *ngay_su_dung : TIMESTAMP
 }
 
-'============ WARRANTY_REQUESTS ============
-entity "WARRANTY_REQUESTS" as WRQ {
-  *id : INT <<PK>>
+'============ DANH_GIA ============
+entity "danh_gia" as DG {
+  *ma_danh_gia : INT <<PK>>
   --
-  *user_id : INT <<FK>>
-  *order_item_id : INT <<FK>>
-  serial_number : VARCHAR(100)
-  *issue_description : TEXT
-  *status : ENUM('pending','processing','completed','rejected')
-  assigned_staff_id : INT <<FK, NULL>>
-  resolution_note : TEXT
-  *received_at : TIMESTAMP DEFAULT NOW()
-  completed_at : TIMESTAMP
+  *ma_nguoi_dung : INT <<FK>>
+  *ma_san_pham : INT <<FK>>
+  ma_chi_tiet_dh : INT <<FK, NULL>>
+  *so_sao : TINYINT(1) CHECK(1-5)
+  binh_luan : TEXT
+  *trang_thai : ENUM('cho_duyet','da_duyet','tu_choi') DEFAULT 'cho_duyet'
+  phan_hoi_admin : TEXT
+  ngay_phan_hoi : TIMESTAMP
+  *ngay_tao : TIMESTAMP
 }
 
-'============ INVENTORY_LOGS ============
-entity "INVENTORY_LOGS" as INVLOGS {
-  *id : INT <<PK>>
+'============ YEU_CAU_BAO_HANH ============
+entity "yeu_cau_bao_hanh" as YCBH {
+  *ma_bao_hanh : INT <<PK>>
   --
-  *product_id : INT <<FK>>
-  user_id : INT <<FK>>
-  *quantity_change : INT
-  *stock_before : INT
-  *stock_after : INT
-  *type : ENUM('import','export','adjustment','return')
-  note : TEXT
-  reference_code : VARCHAR(100)
-  *created_at : TIMESTAMP DEFAULT NOW()
+  *ma_nguoi_dung : INT <<FK>>
+  *ma_chi_tiet_dh : INT <<FK>>
+  so_serial : VARCHAR(100)
+  *mo_ta_su_co : TEXT
+  *hinh_thuc : ENUM('buu_dien','ship_ve','den_cua_hang')
+  so_dien_thoai : VARCHAR(20)
+  lich_hen : DATETIME
+  *trang_thai : ENUM('cho_xu_ly','dang_xu_ly','hoan_thanh','tu_choi')
+  ma_nhan_vien_xu_ly : INT <<FK, NULL>>
+  ghi_chu_xu_ly : TEXT
+  *ngay_tiep_nhan : DATETIME
+  ngay_hoan_thanh : DATETIME
 }
 
-'============ NOTIFICATIONS ============
-entity "NOTIFICATIONS" as NOTIFS {
-  *id : INT <<PK>>
+'============ LICH_SU_KHO ============
+entity "lich_su_kho" as LSK {
+  *ma_lich_su : INT <<PK>>
   --
-  *user_id : INT <<FK>>
-  *title : VARCHAR(200)
-  *content : TEXT
-  type : VARCHAR(50)
-  *is_read : TINYINT(1) DEFAULT 0
-  ref_id : VARCHAR(50)
-  *created_at : TIMESTAMP DEFAULT NOW()
+  *ma_san_pham : INT <<FK>>
+  ma_nguoi_dung : INT <<FK>>
+  *so_luong_bien_dong : INT
+  *ton_kho_truoc : INT
+  *ton_kho_sau : INT
+  *loai_giao_dich : ENUM('nhap','xuat','dieu_chinh','hoan_tra')
+  ghi_chu : TEXT
+  ma_tham_chieu : VARCHAR(100)
+  *ngay_tao : TIMESTAMP
+}
+
+'============ THONG_BAO ============
+entity "thong_bao" as TB {
+  *ma_thong_bao : INT <<PK>>
+  --
+  *ma_nguoi_dung : INT <<FK>>
+  *tieu_de : VARCHAR(200)
+  *noi_dung : TEXT
+  loai : VARCHAR(50)
+  *da_doc : TINYINT(1) DEFAULT 0
+  ma_tham_chieu : VARCHAR(50)
+  *ngay_tao : TIMESTAMP
+}
+
+'============ DIA_CHI_NGUOI_DUNG ============
+entity "dia_chi_nguoi_dung" as DCND {
+  *ma_dia_chi : INT <<PK>>
+  --
+  *ma_nguoi_dung : INT <<FK>>
+  *ten_nhan : VARCHAR(100) DEFAULT 'Nhà'
+  *dia_chi_day_du : TEXT
+  tinh_thanh : VARCHAR(100)
+  quan_huyen : VARCHAR(100)
+  lat : DECIMAL(10,8)
+  lng : DECIMAL(11,8)
+  *la_mac_dinh : TINYINT(1) DEFAULT 0
+  *ngay_tao : TIMESTAMP
+}
+
+'============ FLASH_SALE ============
+entity "flash_sale" as FS {
+  *ma_flash_sale : INT <<PK>>
+  --
+  *ten : VARCHAR(200)
+  *ngay_bat_dau : DATETIME
+  *ngay_ket_thuc : DATETIME
+  *trang_thai : TINYINT(1) DEFAULT 1
+  *ngay_tao : TIMESTAMP
+}
+
+'============ CHI_TIET_FLASH_SALE ============
+entity "chi_tiet_flash_sale" as CTFS {
+  *ma_chi_tiet : INT <<PK>>
+  --
+  *ma_flash_sale : INT <<FK>>
+  *ma_san_pham : INT <<FK>>
+  *gia_flash : DECIMAL(15,2)
+  so_luong_gioi_han : INT
+  da_ban : INT DEFAULT 0
 }
 
 '============ RELATIONSHIPS ============
-USERS ||--o{ ORDERS : "places (user_id)"
-USERS ||--|| CARTS : "has (user_id)"
-USERS ||--o{ REVIEWS : "writes (user_id)"
-USERS ||--o{ WISHLISTS : "saves (user_id)"
-USERS ||--o{ WARRANTY_REQUESTS : "requests (user_id)"
-USERS ||--o{ NOTIFICATIONS : "receives (user_id)"
-USERS ||--o{ VOUCHER_USAGES : "uses (user_id)"
-USERS ||--o{ INVENTORY_LOGS : "records (user_id)"
+ND ||--o{ DH : "đặt"
+ND ||--|| GH : "có"
+ND ||--o{ DG : "viết"
+ND ||--o{ YT : "lưu"
+ND ||--o{ YCBH : "yêu cầu"
+ND ||--o{ TB : "nhận"
+ND ||--o{ VND : "có"
+ND ||--o{ LSV : "sử dụng"
+ND ||--o{ LSK : "ghi nhận"
+ND ||--o{ DCND : "lưu"
 
-CATS ||--o{ CATS : "parent_id (self)"
-CATS ||--o{ PRODS : "belongs (category_id)"
-BRANDS ||--o{ PRODS : "made_by (brand_id)"
+DM ||--o{ DM : "ma_cha (self)"
+DM ||--o{ SP : "chứa"
+TH ||--o{ SP : "của"
 
-PRODS ||--|{ SPECS : "has (product_id)"
-PRODS ||--|{ IMGS : "has (product_id)"
-PRODS ||--o{ CITEMS : "in cart (product_id)"
-PRODS ||--o{ OITEMS : "in order (product_id)"
-PRODS ||--o{ REVIEWS : "rated (product_id)"
-PRODS ||--o{ WISHLISTS : "saved (product_id)"
-PRODS ||--o{ INVLOGS : "tracked (product_id)"
+SP ||--|{ TSKT : "có"
+SP ||--|{ ASP : "có"
+SP ||--o{ CTGH : "trong giỏ"
+SP ||--o{ CTDH : "trong đơn"
+SP ||--o{ DG : "được đánh giá"
+SP ||--o{ LSK : "theo dõi kho"
+SP ||--o{ YT : "được yêu thích"
+SP ||--o{ CTFS : "flash sale"
 
-CARTS ||--o{ CITEMS : "contains (cart_id)"
+GH ||--o{ CTGH : "chứa"
 
-VCHS ||--o{ VUSAGES : "used in (voucher_id)"
-VCHS ||--o{ ORDERS : "applied to (voucher_id)"
+MGG ||--o{ VND : "phân phối"
+MGG ||--o{ DH : "áp dụng (SP)"
+MGG ||--o{ DH : "áp dụng (ship)"
+MGG ||--o{ LSV : "lịch sử"
 
-ORDERS ||--|{ OITEMS : "contains (order_id)"
-ORDERS ||--o{ VUSAGES : "has usage (order_id)"
+DH ||--|{ CTDH : "chứa"
+DH ||--o{ LSV : "ghi nhận"
 
-OITEMS ||--o{ REVIEWS : "reviewed (order_item_id)"
-OITEMS ||--o| WRQ : "warranty (order_item_id)"
+CTDH ||--o{ DG : "đánh giá"
+CTDH ||--o| YCBH : "bảo hành"
+
+FS ||--|{ CTFS : "chứa"
 
 @enduml
