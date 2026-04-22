@@ -15,339 +15,380 @@ skinparam arrow {
 }
 
 '============ NGƯỜI DÙNG & XÁC THỰC ============
-class User {
-  +int id
-  +String name
+class NguoiDung {
+  +int ma_nguoi_dung
+  +String ho_ten
+  +String ho
+  +String ten_dem
+  +String ten
   +String email
-  +String password_hash
-  +Enum role <<admin|staff|user>>
-  +String phone
-  +Text address
-  +int loyalty_points
-  +Boolean is_active
-  +DateTime email_verified_at
-  +DateTime created_at
-  +DateTime updated_at
+  +String mat_khau_ma_hoa
+  +Enum vai_tro <<admin|staff|user>>
+  +String so_dien_thoai
+  +Text dia_chi
+  +String anh_dai_dien
+  +int diem_tich_luy
+  +Boolean trang_thai
+  +DateTime ngay_tao
   --
-  +register() : User
-  +login() : Token
-  +logout() : void
-  +updateProfile() : User
-  +changePassword() : Boolean
-  +getOrders() : Order[]
-  +getWishlist() : Product[]
-  +addLoyaltyPoints(points: int) : void
-  +useLoyaltyPoints(points: int) : Boolean
+  +dangKy() : NguoiDung
+  +dangNhap() : Token
+  +dangXuat() : void
+  +capNhatHoSo(ho, ten_dem, ten, phone) : NguoiDung
+  +doiMatKhau() : Boolean
+  +layDonHang() : DonHang[]
+  +layYeuThich() : SanPham[]
+  +themDiemTichLuy(diem: int) : void
+  +dungDiemTichLuy(diem: int) : Boolean
+}
+
+'============ ĐỊA CHỈ ============
+class DiaChiNguoiDung {
+  +int ma_dia_chi
+  +int ma_nguoi_dung
+  +String ten_nhan
+  +Text dia_chi_day_du
+  +String tinh_thanh
+  +String quan_huyen
+  +Decimal lat
+  +Decimal lng
+  +Boolean la_mac_dinh
+  --
+  +them() : DiaChiNguoiDung
+  +sua() : DiaChiNguoiDung
+  +xoa() : Boolean
+  +datMacDinh() : void
 }
 
 '============ SẢN PHẨM ============
-class Category {
-  +int id
-  +String name
-  +String slug
-  +Text description
-  +String image_url
-  +int parent_id
-  +Boolean is_active
-  +int sort_order
-  +DateTime created_at
+class DanhMuc {
+  +int ma_danh_muc
+  +String ten_danh_muc
+  +String duong_dan
+  +Text mo_ta
+  +String hinh_anh
+  +int ma_cha
+  +Boolean trang_thai
+  +int thu_tu
   --
-  +create() : Category
-  +update() : Category
-  +delete() : Boolean
-  +getChildren() : Category[]
-  +getProducts() : Product[]
+  +them() : DanhMuc
+  +sua() : DanhMuc
+  +xoa() : Boolean
+  +layDanhMucCon() : DanhMuc[]
+  +laySanPham() : SanPham[]
 }
 
-class Brand {
-  +int id
-  +String name
-  +String slug
-  +String logo_url
-  +String country
-  +Boolean is_active
+class ThuongHieu {
+  +int ma_thuong_hieu
+  +String ten_thuong_hieu
+  +String duong_dan
+  +String logo
+  +String xuat_xu
+  +Boolean trang_thai
   --
-  +create() : Brand
-  +update() : Brand
-  +getProducts() : Product[]
+  +them() : ThuongHieu
+  +sua() : ThuongHieu
+  +laySanPham() : SanPham[]
 }
 
-class Product {
-  +int id
-  +String name
-  +String slug
-  +Text description
-  +Text short_desc
-  +Decimal price
-  +Decimal sale_price
-  +int stock_quantity
-  +int min_stock_alert
-  +int category_id
-  +int brand_id
-  +String thumbnail
-  +Boolean is_active
-  +Boolean is_featured
-  +int view_count
-  +float avg_rating
-  +DateTime created_at
-  +DateTime updated_at
+class SanPham {
+  +int ma_san_pham
+  +String ten_san_pham
+  +String duong_dan
+  +Text mo_ta
+  +Text mo_ta_ngan
+  +Decimal gia_goc
+  +Decimal gia_khuyen_mai
+  +int so_luong_ton
+  +int canh_bao_ton_toi_thieu
+  +int ma_danh_muc
+  +int ma_thuong_hieu
+  +String anh_dai_dien
+  +Boolean trang_thai
+  +Boolean noi_bat
+  +int luot_xem
+  +Decimal danh_gia_tb
+  +int thoi_gian_bao_hanh
+  +Decimal phi_van_chuyen
   --
-  +create() : Product
-  +update() : Product
-  +delete() : Boolean
-  +search(keyword: String) : Product[]
-  +filter(params: Object) : Product[]
-  +updateStock(qty: int, type: String) : void
-  +getSpecs() : ProductSpec[]
-  +getImages() : ProductImage[]
-  +getReviews() : Review[]
-  +checkLowStock() : Boolean
+  +them() : SanPham
+  +sua() : SanPham
+  +xoa() : Boolean
+  +timKiem(tuKhoa: String) : SanPham[]
+  +loc(params: Object) : SanPham[]
+  +capNhatTonKho(sl: int, loai: String) : void
+  +layThongSo() : ThongSoKyThuat[]
+  +layAnh() : AnhSanPham[]
+  +layDanhGia() : DanhGia[]
 }
 
-class ProductSpec {
-  +int id
-  +int product_id
-  +String spec_name
-  +String spec_value
-  +String unit
-  +int sort_order
+class ThongSoKyThuat {
+  +int ma_thong_so
+  +int ma_san_pham
+  +String ten_thong_so
+  +String gia_tri
+  +String don_vi
+  +int thu_tu
   --
-  +create() : void
-  +bulkCreate(specs: Array) : void
+  +them() : void
+  +themHangLoat(specs: Array) : void
 }
 
-class ProductImage {
-  +int id
-  +int product_id
-  +String image_url
-  +Boolean is_primary
-  +int sort_order
+class AnhSanPham {
+  +int ma_anh
+  +int ma_san_pham
+  +String url_anh
+  +Boolean la_anh_chinh
+  +int thu_tu
   --
-  +upload() : String
-  +setPrimary() : void
+  +taiLen() : String
+  +datAnhChinh() : void
 }
 
-class Wishlist {
-  +int id
-  +int user_id
-  +int product_id
-  +DateTime created_at
+class YeuThich {
+  +int ma_yeu_thich
+  +int ma_nguoi_dung
+  +int ma_san_pham
+  +DateTime ngay_them
   --
-  +add() : Wishlist
-  +remove() : Boolean
-}
-
-class CompareList {
-  +int id
-  +int user_id
-  +int product_id
-  +DateTime created_at
-  --
-  +add() : void
-  +remove() : void
-  +getProducts() : Product[]
+  +them() : YeuThich
+  +xoa() : Boolean
 }
 
 '============ GIỎ HÀNG & ĐẶT HÀNG ============
-class Cart {
-  +int id
-  +int user_id
-  +DateTime created_at
-  +DateTime updated_at
+class GioHang {
+  +int ma_gio_hang
+  +int ma_nguoi_dung
+  +DateTime ngay_tao
   --
-  +addItem(productId: int, qty: int) : CartItem
-  +removeItem(itemId: int) : Boolean
-  +updateQuantity(itemId: int, qty: int) : void
-  +clear() : void
-  +getTotal() : Decimal
-  +getItemCount() : int
-  +applyVoucher(code: String) : DiscountResult
+  +themSanPham(maSP: int, sl: int) : ChiTietGioHang
+  +xoaSanPham(maChiTiet: int) : Boolean
+  +capNhatSoLuong(maChiTiet: int, sl: int) : void
+  +lamTrong() : void
+  +tinhTongTien() : Decimal
+  +laySoLuong() : int
 }
 
-class CartItem {
-  +int id
-  +int cart_id
-  +int product_id
-  +int quantity
-  +Decimal unit_price
+class ChiTietGioHang {
+  +int ma_chi_tiet
+  +int ma_gio_hang
+  +int ma_san_pham
+  +int so_luong
+  +Decimal don_gia
+  +DateTime ngay_them
   --
-  +getSubtotal() : Decimal
+  +tinhThanhTien() : Decimal
 }
 
-class Order {
-  +int id
-  +int user_id
-  +String order_code
-  +Decimal subtotal
-  +Decimal discount_amount
-  +Decimal shipping_fee
-  +Decimal total_amount
-  +int voucher_id
-  +int loyalty_points_used
-  +int loyalty_points_earned
-  +Enum status <<pending|confirmed|shipping|delivered|cancelled|refunded>>
-  +Enum payment_method <<cod|bank_transfer|momo|points>>
-  +Enum payment_status <<unpaid|paid|refunded>>
-  +Text shipping_address
-  +String receiver_name
-  +String receiver_phone
-  +Text note
-  +DateTime created_at
-  +DateTime updated_at
+class DonHang {
+  +int ma_don_hang
+  +int ma_nguoi_dung
+  +String ma_code
+  +Decimal tam_tinh
+  +Decimal so_tien_giam
+  +Decimal phi_van_chuyen
+  +Decimal so_tien_giam_ship
+  +Decimal tong_tien
+  +int ma_voucher
+  +int ma_voucher_ship
+  +int diem_su_dung
+  +int diem_tich_duoc
+  +Enum trang_thai <<cho_xac_nhan|da_xac_nhan|dang_giao|da_giao|da_huy|hoan_tien>>
+  +Enum phuong_thuc_tt <<tien_mat|chuyen_khoan|momo|diem_tich_luy>>
+  +Enum trang_thai_tt <<chua_tt|da_tt|da_hoan_tien>>
+  +String ten_nguoi_nhan
+  +String sdt_nguoi_nhan
+  +Text dia_chi_giao_hang
+  +Text ghi_chu
   --
-  +create() : Order
-  +updateStatus(status: String) : void
-  +cancel() : Boolean
-  +calculateTotal() : Decimal
-  +getItems() : OrderItem[]
-  +generateCode() : String
+  +tao() : DonHang
+  +capNhatTrangThai(tt: String) : void
+  +huy() : Boolean
+  +tinhTong() : Decimal
+  +layChiTiet() : ChiTietDonHang[]
+  +taoMaCode() : String
 }
 
-class OrderItem {
-  +int id
-  +int order_id
-  +int product_id
-  +String product_name
-  +Decimal unit_price
-  +int quantity
-  +Decimal subtotal
+class ChiTietDonHang {
+  +int ma_chi_tiet
+  +int ma_don_hang
+  +int ma_san_pham
+  +String ten_san_pham
+  +String anh_san_pham
+  +Decimal don_gia
+  +int so_luong
+  +Decimal thanh_tien
   --
-  +getSubtotal() : Decimal
+  +tinhThanhTien() : Decimal
 }
 
 '============ VOUCHER & KHUYẾN MÃI ============
-class Voucher {
-  +int id
-  +String code
-  +String name
-  +Text description
-  +Enum discount_type <<percent|fixed_amount>>
-  +Decimal discount_value
-  +Decimal max_discount_amount
-  +Decimal min_order_value
-  +int max_uses
-  +int used_count
-  +int max_uses_per_user
-  +Boolean is_active
-  +DateTime start_date
-  +DateTime expired_at
-  +DateTime created_at
+class MaGiamGia {
+  +int ma_voucher
+  +String ma_code
+  +String ten_voucher
+  +Text mo_ta
+  +Enum loai_giam <<percent|fixed_amount|freeship>>
+  +Decimal gia_tri_giam
+  +Decimal giam_toi_da
+  +Decimal don_hang_toi_thieu
+  +int gioi_han_su_dung
+  +int da_su_dung
+  +Enum loai_voucher <<product|shipping|promo_code>>
+  +Boolean trang_thai
+  +DateTime het_han
   --
-  +validate(userId: int, orderValue: Decimal) : Boolean
-  +apply(orderValue: Decimal) : Decimal
-  +incrementUsedCount() : void
-  +checkExpired() : Boolean
-  +generateCode() : String
+  +kiemTraHopLe(userId: int, giaTriDon: Decimal) : Boolean
+  +apDung(giaTriDon: Decimal) : Decimal
+  +tangDaSuDung() : void
+  +kiemTraHetHan() : Boolean
 }
 
-class VoucherUsage {
-  +int id
-  +int voucher_id
-  +int user_id
-  +int order_id
-  +Decimal discount_applied
-  +DateTime used_at
+class VoucherNguoiDung {
+  +int ma
+  +int ma_voucher
+  +int ma_nguoi_dung
+  +Boolean da_su_dung
+  +DateTime ngay_su_dung
+  +DateTime ngay_cap
   --
-  +record() : void
+  +ghiNhan() : void
+}
+
+class LichSuVoucher {
+  +int ma_lich_su
+  +int ma_voucher
+  +int ma_nguoi_dung
+  +int ma_don_hang
+  +Decimal so_tien_giam
+  +DateTime ngay_su_dung
+  --
+  +ghiNhan() : void
 }
 
 '============ BẢO HÀNH ============
-class WarrantyRequest {
-  +int id
-  +int user_id
-  +int order_item_id
-  +String serial_number
-  +Text issue_description
-  +Enum status <<pending|processing|completed|rejected>>
-  +String assigned_staff_id
-  +Text resolution_note
-  +DateTime received_at
-  +DateTime completed_at
+class YeuCauBaoHanh {
+  +int ma_bao_hanh
+  +int ma_nguoi_dung
+  +int ma_chi_tiet_dh
+  +String so_serial
+  +Text mo_ta_su_co
+  +Enum hinh_thuc <<buu_dien|ship_ve|den_cua_hang>>
+  +String so_dien_thoai
+  +DateTime lich_hen
+  +Enum trang_thai <<cho_xu_ly|dang_xu_ly|hoan_thanh|tu_choi>>
+  +int ma_nhan_vien_xu_ly
+  +Text ghi_chu_xu_ly
+  +DateTime ngay_tiep_nhan
+  +DateTime ngay_hoan_thanh
   --
-  +create() : WarrantyRequest
-  +updateStatus() : void
-  +assignStaff(staffId: int) : void
+  +tao() : YeuCauBaoHanh
+  +capNhatTrangThai() : void
+  +ganNhanVien(maNV: int) : void
 }
 
 '============ ĐÁNH GIÁ ============
-class Review {
-  +int id
-  +int user_id
-  +int product_id
-  +int order_item_id
-  +int rating
-  +Text comment
-  +Boolean is_approved
-  +DateTime created_at
+class DanhGia {
+  +int ma_danh_gia
+  +int ma_nguoi_dung
+  +int ma_san_pham
+  +int ma_chi_tiet_dh
+  +int so_sao
+  +Text binh_luan
+  +Enum trang_thai <<cho_duyet|da_duyet|tu_choi>>
+  +Text phan_hoi_admin
+  +DateTime ngay_phan_hoi
+  +DateTime ngay_tao
   --
-  +create() : Review
-  +approve() : void
-  +delete() : Boolean
+  +tao() : DanhGia
+  +duyet() : void
+  +tuChoi() : void
+  +phanHoi(noiDung: String) : void
 }
 
 '============ KHO HÀNG ============
-class InventoryLog {
-  +int id
-  +int product_id
-  +int user_id
-  +int quantity_change
-  +int stock_before
-  +int stock_after
-  +Enum type <<import|export|adjustment|return>>
-  +Text note
-  +String reference_code
-  +DateTime created_at
+class LichSuKho {
+  +int ma_lich_su
+  +int ma_san_pham
+  +int ma_nguoi_dung
+  +int so_luong_bien_dong
+  +int ton_kho_truoc
+  +int ton_kho_sau
+  +Enum loai_giao_dich <<nhap|xuat|dieu_chinh|hoan_tra>>
+  +Text ghi_chu
+  +String ma_tham_chieu
+  +DateTime ngay_tao
   --
-  +logImport(qty: int) : void
-  +logExport(qty: int) : void
-  +logAdjustment(qty: int) : void
+  +ghiNhapKho(sl: int) : void
+  +ghiXuatKho(sl: int) : void
+  +ghiDieuChinh(sl: int) : void
 }
 
 '============ THÔNG BÁO ============
-class Notification {
-  +int id
-  +int user_id
-  +String title
-  +Text content
-  +String type
-  +Boolean is_read
-  +String ref_id
-  +DateTime created_at
+class ThongBao {
+  +int ma_thong_bao
+  +int ma_nguoi_dung
+  +String tieu_de
+  +Text noi_dung
+  +String loai
+  +Boolean da_doc
+  +String ma_tham_chieu
+  +DateTime ngay_tao
   --
-  +send() : void
-  +markRead() : void
+  +gui() : void
+  +danhDauDaDoc() : void
+  +danhDauTatCaDaDoc() : void
+}
+
+'============ FLASH SALE ============
+class FlashSale {
+  +int ma_flash_sale
+  +String ten
+  +DateTime ngay_bat_dau
+  +DateTime ngay_ket_thuc
+  +Boolean trang_thai
+  --
+  +tao() : FlashSale
+  +themSanPham(maSP: int, gia: Decimal) : void
+  +kiemTraHoatDong() : Boolean
 }
 
 '============ RELATIONSHIPS ============
-User "1" --o{ Order : "đặt"
-User "1" --|| Cart : "có"
-User "1" --o{ Review : "viết"
-User "1" --o{ Wishlist : "lưu"
-User "1" --o{ CompareList : "so sánh"
-User "1" --o{ WarrantyRequest : "yêu cầu"
-User "1" --o{ Notification : "nhận"
-User "1" --o{ VoucherUsage : "sử dụng"
+NguoiDung "1" --o{ DonHang : "đặt"
+NguoiDung "1" --|| GioHang : "có"
+NguoiDung "1" --o{ DanhGia : "viết"
+NguoiDung "1" --o{ YeuThich : "lưu"
+NguoiDung "1" --o{ YeuCauBaoHanh : "yêu cầu"
+NguoiDung "1" --o{ ThongBao : "nhận"
+NguoiDung "1" --o{ VoucherNguoiDung : "có"
+NguoiDung "1" --o{ LichSuVoucher : "sử dụng"
+NguoiDung "1" --o{ DiaChiNguoiDung : "lưu"
 
-Order "1" *--{ OrderItem : "chứa"
-Order "1" --o| Voucher : "áp dụng"
-Order "1" --o{ VoucherUsage : "ghi nhận"
+DonHang "1" *--{ ChiTietDonHang : "chứa"
+DonHang "1" --o| MaGiamGia : "áp dụng (SP)"
+DonHang "1" --o| MaGiamGia : "áp dụng (ship)"
+DonHang "1" --o{ LichSuVoucher : "ghi nhận"
 
-Cart "1" *--o{ CartItem : "chứa"
+GioHang "1" *--o{ ChiTietGioHang : "chứa"
 
-Product "1" --o{ OrderItem : "thuộc"
-Product "1" --o{ CartItem : "thuộc"
-Product "1" *--{ ProductSpec : "có"
-Product "1" *--{ ProductImage : "có"
-Product "1" --o{ Review : "nhận"
-Product "1" --o{ InventoryLog : "theo dõi"
-Product "1" --o{ Wishlist : "được lưu"
-Product "1" --o{ CompareList : "được ss"
+SanPham "1" --o{ ChiTietDonHang : "thuộc"
+SanPham "1" --o{ ChiTietGioHang : "thuộc"
+SanPham "1" *--{ ThongSoKyThuat : "có"
+SanPham "1" *--{ AnhSanPham : "có"
+SanPham "1" --o{ DanhGia : "nhận"
+SanPham "1" --o{ LichSuKho : "theo dõi"
+SanPham "1" --o{ YeuThich : "được lưu"
 
-Product "}o" -- "1|" Category : "thuộc"
-Product "}o" -- "1|" Brand : "của"
-Category "1" --o{ Category : "parent/child"
+SanPham "}o" -- "1|" DanhMuc : "thuộc"
+SanPham "}o" -- "1|" ThuongHieu : "của"
+DanhMuc "1" --o{ DanhMuc : "parent/child"
 
-Voucher "1" --o{ VoucherUsage : "được dùng"
-OrderItem "1" --o| WarrantyRequest : "bảo hành"
+MaGiamGia "1" --o{ VoucherNguoiDung : "phân phối"
+MaGiamGia "1" --o{ LichSuVoucher : "được dùng"
+
+ChiTietDonHang "1" --o| YeuCauBaoHanh : "bảo hành"
+ChiTietDonHang "1" --o| DanhGia : "đánh giá"
+
+FlashSale "1" *--{ SanPham : "gồm"
 
 @enduml

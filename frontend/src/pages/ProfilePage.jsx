@@ -80,36 +80,87 @@ function Sidebar({ user, tab, setTab, onLogout }) {
 
 // ─── PANEL: THÔNG TIN TÀI KHOẢN ────────────────────────────────
 function InfoPanel({ user, updateUser }) {
-  const [form, setForm] = useState({ name: user?.name||'', phone: user?.phone||'' });
+  const [form, setForm] = useState({
+    ho:      user?.ho      || '',
+    ten_dem: user?.ten_dem || '',
+    ten:     user?.ten     || '',
+    phone:   user?.phone   || '',
+  });
   const [loading, setLoading] = useState(false);
 
+  // Dong bo khi user thay doi (sau khi load xong)
+  useEffect(() => {
+    setForm({
+      ho:      user?.ho      || '',
+      ten_dem: user?.ten_dem || '',
+      ten:     user?.ten     || '',
+      phone:   user?.phone   || '',
+    });
+  }, [user?.ho, user?.ten_dem, user?.ten, user?.phone]);
+
   const save = async (e) => {
-    e.preventDefault(); setLoading(true);
+    e.preventDefault();
+    if (!form.ho.trim() || !form.ten.trim()) {
+      toast.error('Vui lòng nhập ít nhất Họ và Tên!');
+      return;
+    }
+    setLoading(true);
     try {
-      const res = await authApi.updateProfile(form);
+      // Ghep ho_ten day du de gui len
+      const fullName = [form.ho, form.ten_dem, form.ten].filter(Boolean).join(' ');
+      const res = await authApi.updateProfile({
+        ho:      form.ho.trim(),
+        ten_dem: form.ten_dem.trim() || null,
+        ten:     form.ten.trim(),
+        name:    fullName,
+        phone:   form.phone,
+      });
       updateUser(res.data.data);
       toast.success('Cập nhật thành công!');
     } catch { toast.error('Có lỗi xảy ra!'); }
     finally { setLoading(false); }
   };
 
-  const rows = [
-    { label: 'Họ và tên', field: 'name', type: 'text', icon: <User size={14}/> },
-    { label: 'Số điện thoại', field: 'phone', type: 'tel', icon: null },
-  ];
-
   return (
     <div>
       <h2 style={hdr}>Thông tin cá nhân</h2>
       <form onSubmit={save}>
-        {rows.map(r => (
-          <div key={r.field} style={rowStyle}>
-            <label style={labelStyle}>{r.label}</label>
-            <input className="form-control" type={r.type} value={form[r.field]}
-              onChange={e => setForm({...form, [r.field]: e.target.value})}
-              style={{ maxWidth: 360 }} />
-          </div>
-        ))}
+        {/* Ho */}
+        <div style={rowStyle}>
+          <label style={labelStyle}>Họ</label>
+          <input className="form-control" type="text"
+            value={form.ho}
+            onChange={e => setForm({...form, ho: e.target.value})}
+            placeholder="Ví dụ: Nguyễn"
+            style={{ maxWidth: 360 }} />
+        </div>
+        {/* Ten dem */}
+        <div style={rowStyle}>
+          <label style={labelStyle}>Tên đệm</label>
+          <input className="form-control" type="text"
+            value={form.ten_dem}
+            onChange={e => setForm({...form, ten_dem: e.target.value})}
+            placeholder="Ví dụ: Văn (có thể bỏ trống)"
+            style={{ maxWidth: 360 }} />
+        </div>
+        {/* Ten */}
+        <div style={rowStyle}>
+          <label style={labelStyle}>Tên</label>
+          <input className="form-control" type="text"
+            value={form.ten}
+            onChange={e => setForm({...form, ten: e.target.value})}
+            placeholder="Ví dụ: An"
+            style={{ maxWidth: 360 }} />
+        </div>
+        {/* So dien thoai */}
+        <div style={rowStyle}>
+          <label style={labelStyle}>Số điện thoại</label>
+          <input className="form-control" type="tel"
+            value={form.phone}
+            onChange={e => setForm({...form, phone: e.target.value})}
+            style={{ maxWidth: 360 }} />
+        </div>
+        {/* Email (readonly) */}
         <div style={rowStyle}>
           <label style={labelStyle}>Email</label>
           <input className="form-control" value={user?.email||''} disabled style={{ maxWidth: 360, opacity: 0.6 }} />

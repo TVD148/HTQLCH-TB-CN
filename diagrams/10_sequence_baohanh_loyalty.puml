@@ -8,76 +8,69 @@ skinparam roundcorner 10
 actor "Khách hàng" as KH #LightGreen
 actor "Nhân viên" as NV #LightYellow
 participant "React FE" as FE #LightBlue
-participant "Warranty\nController" as WC #Orange
-participant "Loyalty\nService" as LS #Violet
-participant "Notification\nService" as NS #Pink
+participant "Warranty\nRoute" as WC #Orange
+participant "Notifications\nRoute" as NS #Pink
 participant "MySQL DB" as DB #LightCoral
 
 == YÊU CẦU BẢO HÀNH ==
-KH -> FE : Vào "Đơn hàng của tôi"\n→ Chọn SP → "Yêu cầu bảo hành"
+KH -> FE : Vào "Đơn hàng của tôi"\n→ Chọn SP "da_giao" → "Yêu cầu bảo hành"
 activate FE
-FE -> WC : POST /api/warranty\n{order_item_id, serial_number,\nissue_description}\n[JWT Bearer]
+FE -> WC : POST /api/warranty\n{ma_chi_tiet_dh, so_serial,\n mo_ta_su_co, hinh_thuc,\n so_dien_thoai, lich_hen}\n[JWT Bearer]
 activate WC
 
-WC -> DB : SELECT oi.*, o.created_at, p.name\nFROM order_items oi\nJOIN orders o ON o.id=oi.order_id\nJOIN products p ON p.id=oi.product_id\nWHERE oi.id=? AND o.user_id=?\nAND o.status='delivered'
+WC -> DB : SELECT ctdh.*, dh.ngay_tao, sp.ten_san_pham,\nsp.thoi_gian_bao_hanh\nFROM chi_tiet_don_hang ctdh\nJOIN don_hang dh ON dh.ma_don_hang=ctdh.ma_don_hang\nJOIN san_pham sp ON sp.ma_san_pham=ctdh.ma_san_pham\nWHERE ctdh.id=? AND dh.ma_nguoi_dung=?\nAND dh.trang_thai='da_giao'
 activate DB
-DB --> WC : Order item data
+DB --> WC : Order item + thoi_gian_bao_hanh (tháng)
 deactivate DB
 
-WC -> WC : Kiểm tra thời hạn bảo hành\n(12 tháng từ ngày nhận hàng)
+WC -> WC : Kiểm tra thời hạn bảo hành\n(ngay_tao + thoi_gian_bao_hanh tháng >= NOW())
 
 alt Còn trong thời hạn bảo hành
-  WC -> DB : INSERT INTO warranty_requests\n(user_id, order_item_id, serial_number,\nissue_description, status='pending',\nreceived_at=NOW())
+  WC -> DB : INSERT INTO yeu_cau_bao_hanh\n(ma_nguoi_dung, ma_chi_tiet_dh, so_serial,\n mo_ta_su_co, hinh_thuc, so_dien_thoai,\n lich_hen, trang_thai='cho_xu_ly')
   activate DB
-  DB --> WC : warranty_id
+  DB --> WC : ma_bao_hanh
   deactivate DB
-  WC -> NS : sendNotification(user_id,\n"Phiếu BH #"+id+" đã tiếp nhận")
-  WC -> NS : sendNotification(staff_ids,\n"Có yêu cầu bảo hành mới #"+id)
-  activate NS
-  NS -> DB : INSERT INTO notifications (bulk)
-  NS --> WC : Sent
-  deactivate NS
-  WC --> FE : 201 { warrantyRequest }
-  FE --> KH : ✅ "Yêu cầu bảo hành đã tiếp nhận\nMã phiếu: #WR-2026-XXXX"
+  WC -> DB : INSERT INTO thong_bao\n(KH: "Phiếu bảo hành #ID đã tiếp nhận")
+  WC --> FE : 201 { bao_hanh: { ma_bao_hanh, trang_thai } }
+  FE --> KH : ✅ "Yêu cầu bảo hành đã tiếp nhận\nMã phiếu: #BH-XXXX"
 
 else Hết hạn bảo hành
   WC --> FE : 400 { message: "Sản phẩm đã hết thời hạn bảo hành" }
-  FE --> KH : ❌ "Sản phẩm đã quá 12 tháng bảo hành"
+  FE --> KH : ❌ "Sản phẩm đã quá [N] tháng bảo hành"
 end
 deactivate WC
 deactivate FE
 
 == XỬ LÝ BẢO HÀNH (Nhân viên) ==
-NV -> FE : Xem danh sách phiếu bảo hành
+NV -> FE : Vào Admin → Quản lý Bảo hành
 activate FE
-FE -> WC : GET /api/admin/warranty?status=pending\n[JWT Bearer, role=staff|admin]
+FE -> WC : GET /api/admin/warranty?trang_thai=cho_xu_ly\n[JWT Bearer, role=staff|admin]
 activate WC
-WC -> DB : SELECT wr.*, u.name, u.phone,\np.name as product_name\nFROM warranty_requests wr\nJOIN users u ON u.id=wr.user_id\nJOIN order_items oi ON oi.id=wr.order_item_id\nJOIN products p ON p.id=oi.product_id\nWHERE wr.status='pending'
+WC -> DB : SELECT ycbh.*, nd.ho_ten, nd.so_dien_thoai,\nsp.ten_san_pham\nFROM yeu_cau_bao_hanh ycbh\nJOIN nguoi_dung nd ON nd.ma_nguoi_dung=ycbh.ma_nguoi_dung\nJOIN chi_tiet_don_hang ctdh ON ...\nJOIN san_pham sp ON ...\nWHERE trang_thai='cho_xu_ly'
 activate DB
 DB --> WC : Warranty list
 deactivate DB
 WC --> FE : 200 { warranties }
-FE --> NV : Danh sách phiếu bảo hành
+FE --> NV : Danh sách phiếu bảo hành + hình thức
 deactivate WC
 
-NV -> FE : Nhấn "Cập nhật" → Chọn "Đang xử lý"
-FE -> WC : PATCH /api/admin/warranty/:id/status\n{status: "processing",\nassigned_staff_id: nv_id}
+NV -> FE : Cập nhật → "Đang xử lý"\n+ ghi chú xử lý
+FE -> WC : PATCH /api/admin/warranty/:id/status\n{trang_thai: "dang_xu_ly",\n ma_nhan_vien_xu_ly: nv_id}
 activate WC
-WC -> DB : UPDATE warranty_requests\nSET status='processing',\nassigned_staff_id=?\nWHERE id=?
+WC -> DB : UPDATE yeu_cau_bao_hanh\nSET trang_thai='dang_xu_ly',\nma_nhan_vien_xu_ly=?\nWHERE ma_bao_hanh=?
 DB --> WC : Updated
-WC -> NS : Notify KH: "Phiếu #ID đang được xử lý"
+WC -> DB : INSERT INTO thong_bao\n(KH: "Phiếu #ID đang được xử lý")
 WC --> FE : 200 { warrantyRequest }
 FE --> NV : ✅ Đã cập nhật
 deactivate WC
-deactivate FE
 
-NV -> FE : Hoàn thành bảo hành
+NV -> FE : Hoàn thành bảo hành + ghi chú kết quả
 activate FE
-FE -> WC : PATCH /api/admin/warranty/:id/status\n{status: "completed", resolution_note: "..."}
+FE -> WC : PATCH /api/admin/warranty/:id/status\n{trang_thai: "hoan_thanh",\n ghi_chu_xu_ly: "Đã thay linh kiện..."}
 activate WC
-WC -> DB : UPDATE warranty_requests\nSET status='completed',\nresolution_note=?,\ncompleted_at=NOW() WHERE id=?
+WC -> DB : UPDATE yeu_cau_bao_hanh\nSET trang_thai='hoan_thanh',\nghi_chu_xu_ly=?,\nngay_hoan_thanh=NOW()\nWHERE ma_bao_hanh=?
 DB --> WC : Updated
-WC -> NS : Notify KH: "SP của bạn đã sửa xong!"
+WC -> DB : INSERT INTO thong_bao\n(KH: "Sản phẩm của bạn đã sửa xong!")
 WC --> FE : 200
 FE --> NV : ✅ Bảo hành hoàn tất
 deactivate WC
@@ -85,38 +78,31 @@ deactivate FE
 
 == TÍCH ĐIỂM & SỬ DỤNG ĐIỂM ==
 note over KH, DB
-  Tích điểm: 1% giá trị đơn hàng → 1 điểm = 1.000đ
-  Đơn 5.000.000đ → được 50 điểm = 50.000đ
+  Tích điểm: 1 điểm / 100.000đ giá trị đơn hàng
+  Sử dụng: 1 điểm = 1.000đ
+  Có thể kết hợp với voucher
 end note
 
-KH -> FE : Xem số điểm tích lũy
+KH -> FE : Xem số điểm trên Profile / Header
 activate FE
-FE -> LS : GET /api/loyalty/balance\n[JWT Bearer]
-activate LS
-LS -> DB : SELECT loyalty_points FROM users\nWHERE id=?
+FE -> DB : GET /api/auth/me → diem_tich_luy trong user
 activate DB
-DB --> LS : { loyalty_points: 250 }
+DB --> FE : { diem_tich_luy: 250 }
 deactivate DB
-LS --> FE : 200 { points: 250, value: "250.000đ" }
-FE --> KH : 💎 Điểm tích lũy: 250 điểm = 250.000đ
-deactivate LS
+FE --> KH : ⭐ 250 điểm tích lũy (= 250.000đ)
 deactivate FE
 
-KH -> FE : Thanh toán bằng điểm (một phần)
+KH -> FE : Checkout → Nhập số điểm muốn dùng (VD: 100)
 activate FE
-FE -> LS : POST /api/cart/apply-points\n{pointsToUse: 100}\n[JWT Bearer]
-activate LS
-LS -> DB : SELECT loyalty_points FROM users WHERE id=?
-DB --> LS : 250 points
-alt Đủ điểm
-  LS -> LS : Validate: 100 <= 250\nDeduction: 100 điểm = 100.000đ
-  LS --> FE : 200 { deduction: 100000,\nupdated_total: X }
-  FE --> KH : ✅ Giảm 100.000đ từ điểm tích lũy
-else Không đủ điểm
-  LS --> FE : 400 { message: "Không đủ điểm" }
-  FE --> KH : ❌ "Bạn chỉ có 250 điểm (250.000đ)"
-end
-deactivate LS
+FE -> FE : Tính: diem_su_dung <= diem_tich_luy\nDeduction = 100 * 1.000 = 100.000đ
+FE --> KH : Hiển thị tổng tiền đã giảm
+
+KH -> FE : Xác nhận đặt hàng\n{loyalty_points_used: 100, ...}
+FE -> DB : POST /api/orders\n→ orderController xử lý:
+activate DB
+DB --> FE : Trừ điểm + tính điểm mới
+deactivate DB
+FE --> KH : ✅ "Đã dùng 100 điểm = -100.000đ\nTích thêm N điểm từ đơn này"
 deactivate FE
 
 @enduml

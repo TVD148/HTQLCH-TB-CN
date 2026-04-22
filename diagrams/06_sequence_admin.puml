@@ -1,6 +1,6 @@
 @startuml 06_sequence_admin
 !theme cerulean-outline
-title Sơ đồ Tuần tự - Quản lý Admin\n(Sản phẩm, Đơn hàng, Báo cáo, Bảo hành)
+title Sơ đồ Tuần tự - Quản lý Admin\n(Sản phẩm, Đơn hàng, Voucher, Báo cáo, Người dùng)
 
 skinparam sequenceArrowThickness 2
 skinparam roundcorner 10
@@ -13,22 +13,22 @@ participant "Auth\nMiddleware" as AUTH #Gray
 participant "MySQL DB" as DB #LightCoral
 
 == THÊM SẢN PHẨM MỚI ==
-ADMIN -> FE : Điền form thêm sản phẩm\n(tên, giá, danh mục, thông số kỹ thuật, ảnh)
+ADMIN -> FE : Điền form thêm sản phẩm\n(tên, giá, giá KM, danh mục, thương hiệu,\n thông số kỹ thuật, ảnh, bảo hành, phí ship)
 activate FE
 FE -> AUTH : POST /api/admin/products\n[JWT Bearer]
 activate AUTH
-AUTH -> AUTH : verifyToken()\ncheckRole(['admin'])
+AUTH -> AUTH : verifyToken()\nrequireAdmin()
 AUTH -> AC : Chuyển tiếp request
 deactivate AUTH
 activate AC
-AC -> DB : INSERT INTO products\n(name, slug, price, sale_price,\nstock_quantity, category_id, brand_id...)
+AC -> DB : INSERT INTO san_pham\n(ten_san_pham, duong_dan, mo_ta, gia_goc,\ngia_khuyen_mai, so_luong_ton, ma_danh_muc,\nma_thuong_hieu, thoi_gian_bao_hanh, phi_van_chuyen...)
 activate DB
-DB --> AC : product_id
+DB --> AC : ma_san_pham
 deactivate DB
-AC -> DB : INSERT INTO product_specs (bulk)\n[(product_id, spec_name, spec_value)]
-AC -> DB : INSERT INTO product_images (bulk)\n[(product_id, image_url, is_primary)]
-AC -> DB : INSERT INTO inventory_logs\n(product_id, qty, type='import',\nstock_after=initial_stock)
-AC --> FE : 201 { product, message: "Tạo sản phẩm thành công" }
+AC -> DB : INSERT INTO thong_so_ky_thuat (bulk)\n[(ma_san_pham, ten_thong_so, gia_tri, don_vi)]
+AC -> DB : INSERT INTO anh_san_pham (bulk)\n[(ma_san_pham, url_anh, la_anh_chinh)]
+AC -> DB : INSERT INTO lich_su_kho\n(ma_san_pham, loai_giao_dich='nhap',\nton_kho_truoc=0, ton_kho_sau=so_luong_ton)
+AC --> FE : 201 { san_pham, message: "Tạo sản phẩm thành công" }
 FE --> ADMIN : ✅ Cập nhật danh sách sản phẩm
 deactivate AC
 deactivate FE
@@ -36,41 +36,46 @@ deactivate FE
 == CẬP NHẬT TRẠNG THÁI ĐƠN HÀNG ==
 NV -> FE : Chọn đơn hàng → Cập nhật trạng thái
 activate FE
-FE -> AUTH : PATCH /api/admin/orders/:id/status\n{status: "confirmed"}\n[JWT Bearer]
+FE -> AUTH : PATCH /api/admin/orders/:id/status\n{trang_thai: "da_xac_nhan"}\n[JWT Bearer]
 activate AUTH
-AUTH -> AUTH : checkRole(['admin','staff'])
+AUTH -> AUTH : requireStaff() hoặc requireAdmin()
 AUTH -> AC : Forward
 deactivate AUTH
 activate AC
-AC -> DB : SELECT * FROM orders WHERE id=?
+AC -> DB : SELECT * FROM don_hang WHERE ma_don_hang=?
 activate DB
 DB --> AC : Order record
 deactivate DB
 
-AC -> AC : validateStatusTransition\n(current → new)
+AC -> AC : validateStatusTransition\n(cho_xac_nhan → da_xac_nhan → dang_giao → da_giao)
 
 alt Chuyển trạng thái hợp lệ
-  AC -> DB : UPDATE orders SET status=?,\nupdated_at=NOW() WHERE id=?
-  AC -> DB : INSERT INTO notifications\n(user_id, 'Đơn hàng của bạn đã [status]')
-  AC --> FE : 200 { order }
+  AC -> DB : UPDATE don_hang SET trang_thai=?,\nngay_cap_nhat=NOW() WHERE ma_don_hang=?
+  AC -> DB : INSERT INTO thong_bao\n(ma_nguoi_dung, tieu_de='Cập nhật Đơn hàng #code',\nnoi_dung='Đơn hàng của bạn đang được vận chuyển.')
+  alt Hoàn trả đơn (da_huy)
+    AC -> DB : UPDATE san_pham SET so_luong_ton += so_luong\n(hoàn kho cho từng sản phẩm)
+    AC -> DB : INSERT INTO lich_su_kho (loai='hoan_tra')
+    AC -> DB : UPDATE nguoi_dung SET\ndiem_tich_luy += diem_su_dung\n(hoàn điểm đã dùng)
+  end
+  AC --> FE : 200 { don_hang }
   FE --> NV : ✅ Trạng thái đã cập nhật
-else Không hợp lệ (vd: từ delivered → pending)
+else Không hợp lệ
   AC --> FE : 400 { message: "Không thể chuyển trạng thái này" }
   FE --> NV : ❌ Hiển thị lỗi
 end
 deactivate AC
 deactivate FE
 
-== QUẢN LÝ VOUCHER ==
+== QUẢN LÝ VOUCHER & PHÂN PHỐI ==
 ADMIN -> FE : Tạo Voucher mới
 activate FE
-FE -> AUTH : POST /api/admin/vouchers\n{code, discount_type, discount_value,\nmin_order_value, max_uses, expired_at}\n[JWT Bearer]
+FE -> AUTH : POST /api/admin/vouchers\n{ma_code, loai_giam, gia_tri_giam,\n don_hang_toi_thieu, gioi_han_su_dung,\n loai_voucher ('product'|'shipping'), het_han}\n[JWT Bearer]
 activate AUTH
-AUTH -> AUTH : checkRole(['admin'])
+AUTH -> AUTH : requireAdmin()
 AUTH -> AC : Forward
 deactivate AUTH
 activate AC
-AC -> DB : SELECT * FROM vouchers WHERE code=?
+AC -> DB : SELECT * FROM ma_giam_gia WHERE ma_code=?
 activate DB
 DB --> AC : Kiểm tra trùng code
 deactivate DB
@@ -78,53 +83,76 @@ alt Code đã tồn tại
   AC --> FE : 409 { message: "Mã đã tồn tại" }
   FE --> ADMIN : ❌ Lỗi trùng mã
 else Code mới
-  AC -> DB : INSERT INTO vouchers (code, discount_type,\ndiscount_value, min_order_value,\nmax_uses, is_active=1, expired_at)
-  DB --> AC : voucher_id
+  AC -> DB : INSERT INTO ma_giam_gia\n(ma_code, loai_giam, gia_tri_giam, giam_toi_da,\ndon_hang_toi_thieu, gioi_han_su_dung, loai_voucher, het_han)
+  DB --> AC : ma_voucher
   AC --> FE : 201 { voucher }
-  FE --> ADMIN : ✅ Voucher đã tạo thành công
+  FE --> ADMIN : ✅ Voucher đã tạo
 end
+deactivate AC
+deactivate FE
+
+ADMIN -> FE : Phân phối Voucher cho user
+activate FE
+FE -> AUTH : POST /api/admin/vouchers/:id/distribute\n{user_ids: [3, 4, 5]}\n[JWT Bearer]
+activate AUTH
+AUTH -> AC : Forward
+deactivate AUTH
+activate AC
+AC -> DB : INSERT INTO voucher_nguoi_dung (bulk)\n[(ma_voucher, ma_nguoi_dung, da_su_dung=0)]
+AC -> DB : INSERT INTO thong_bao (bulk)\n(user_ids, "Bạn nhận được voucher mới!")
+AC --> FE : 200 { distributed: 3 }
+FE --> ADMIN : ✅ Đã gửi voucher cho 3 người dùng
 deactivate AC
 deactivate FE
 
 == XEM BÁO CÁO DOANH THU ==
 ADMIN -> FE : Chọn khoảng thời gian báo cáo
 activate FE
-FE -> AUTH : GET /api/admin/reports/revenue\n?from=2026-04-01&to=2026-04-30\n[JWT Bearer]
+FE -> AUTH : GET /api/admin/reports\n?from=2026-04-01&to=2026-04-30\n[JWT Bearer]
 activate AUTH
-AUTH -> AUTH : checkRole(['admin'])
+AUTH -> AUTH : requireAdmin()
 AUTH -> AC : Forward
 deactivate AUTH
 activate AC
-AC -> DB : SELECT DATE(created_at) as date,\nCOUNT(*) as order_count,\nSUM(total_amount) as revenue\nFROM orders\nWHERE status='delivered'\nAND created_at BETWEEN ? AND ?\nGROUP BY DATE(created_at)
+AC -> DB : SELECT DATE(ngay_tao) as ngay,\nCOUNT(*) as so_don,\nSUM(tong_tien) as doanh_thu\nFROM don_hang WHERE trang_thai='da_giao'\nAND ngay_tao BETWEEN ? AND ?\nGROUP BY DATE(ngay_tao)
 activate DB
 DB --> AC : Revenue data array
 deactivate DB
-AC -> DB : SELECT p.name, SUM(oi.quantity) as sold,\nSUM(oi.subtotal) as revenue\nFROM order_items oi\nJOIN products p ON p.id=oi.product_id\nGROUP BY p.id\nORDER BY sold DESC LIMIT 10
+AC -> DB : SELECT sp.ten_san_pham,\nSUM(ctdh.so_luong) as da_ban,\nSUM(ctdh.thanh_tien) as doanh_thu\nFROM chi_tiet_don_hang ctdh\nJOIN san_pham sp ON sp.ma_san_pham=ctdh.ma_san_pham\nGROUP BY sp.ma_san_pham\nORDER BY da_ban DESC LIMIT 10
 DB --> AC : Top 10 sản phẩm bán chạy
-AC -> DB : SELECT SUM(stock_quantity * price)\nFROM products WHERE is_active=1
-DB --> AC : Inventory value
-AC --> FE : 200 {\n  revenue_chart: [...],\n  total_revenue: X,\n  total_orders: Y,\n  top_products: [...],\n  inventory_value: Z\n}
-FE --> ADMIN : 📊 Hiển thị biểu đồ doanh thu\nvà thống kê tổng quan
+AC -> DB : SELECT COUNT(*), SUM(tong_tien),\nAVG(tong_tien) FROM don_hang
+DB --> AC : Summary stats
+AC --> FE : 200 {\n  revenue_chart: [...],\n  tong_doanh_thu: X,\n  tong_don: Y,\n  top_san_pham: [...]\n}
+FE --> ADMIN : 📊 Biểu đồ doanh thu\nvà thống kê tổng quan
 deactivate AC
 deactivate FE
 
-== TIẾP NHẬN BẢO HÀNH ==
-NV -> FE : Tạo phiếu bảo hành
+== QUẢN LÝ NGƯỜI DÙNG ==
+ADMIN -> FE : Xem danh sách người dùng + tìm kiếm
 activate FE
-FE -> AUTH : POST /api/admin/warranty\n{orderItemId, serialNumber,\nissueDescription}\n[JWT Bearer]
+FE -> AUTH : GET /api/admin/users\n?search=nguyen&role=user&page=1\n[JWT Bearer]
 activate AUTH
-AUTH -> AUTH : checkRole(['admin','staff'])
 AUTH -> AC : Forward
 deactivate AUTH
 activate AC
-AC -> DB : SELECT oi.*, o.user_id, o.created_at\nFROM order_items oi\nJOIN orders o ON o.id=oi.order_id\nWHERE oi.id=?
-DB --> AC : Order item data
-AC -> AC : Kiểm tra còn trong thời hạn BH
-AC -> DB : INSERT INTO warranty_requests\n(user_id, order_item_id,\nserial_number, issue_description,\nstatus='pending')
-DB --> AC : warranty_id
-AC -> DB : INSERT INTO notifications\n(user_id, 'Phiếu bảo hành #ID đã tiếp nhận')
-AC --> FE : 201 { warrantyRequest }
-FE --> NV : ✅ Phiếu bảo hành đã tạo
+AC -> DB : SELECT ma_nguoi_dung, ho_ten, ho, ten_dem, ten,\nemail, so_dien_thoai, vai_tro, trang_thai,\ndiem_tich_luy, ngay_tao\nFROM nguoi_dung\nWHERE ho_ten LIKE ? AND vai_tro=?\nORDER BY ngay_tao DESC
+DB --> AC : Users list
+AC --> FE : 200 { users, pagination }
+FE --> ADMIN : Danh sách người dùng
+deactivate AC
+deactivate FE
+
+ADMIN -> FE : Khóa / Mở khóa tài khoản
+activate FE
+FE -> AUTH : PATCH /api/admin/users/:id/toggle-status\n[JWT Bearer]
+activate AUTH
+AUTH -> AC : Forward
+deactivate AUTH
+activate AC
+AC -> DB : UPDATE nguoi_dung SET\ntrang_thai = NOT trang_thai\nWHERE ma_nguoi_dung=?
+DB --> AC : Updated
+AC --> FE : 200 { user }
+FE --> ADMIN : ✅ Đã thay đổi trạng thái
 deactivate AC
 deactivate FE
 

@@ -1,6 +1,6 @@
 @startuml 09_component_diagram
 !theme cerulean-outline
-title Sơ đồ Thành phần (Component Diagram)\nKiến trúc Hệ thống HTTT01
+title Sơ đồ Thành phần (Component Diagram)\nKiến trúc Hệ thống Quản lý Cửa hàng TBCN
 
 skinparam componentStyle rectangle
 skinparam rectangle {
@@ -12,186 +12,159 @@ package "🌐 Client Layer" {
   [Browser / Mobile Web] as CLIENT
 }
 
-package "⚛️ Frontend - ReactJS (Vite)" {
-  package "Pages" {
-    [HomePage] as HP
-    [ShopPage] as SP
-    [ProductDetailPage] as PDP
+package "⚛️ Frontend - ReactJS (Vite + React Router v6)" {
+  package "Pages (User)" {
+    [HomePage\n(Flash Sale, Featured)] as HP
+    [ShopPage\n(Filter, Sort, Search)] as SHP
+    [ProductDetailPage\n(Specs, Reviews, Compare)] as PDP
     [CartPage] as CP
-    [CheckoutPage] as CKP
-    [OrdersPage] as ORP
-    [LoginPage / RegisterPage] as AUTH
-    [AdminDashboard] as ADMIN
-    [WishlistPage] as WL
+    [CheckoutPage\n(Voucher x2, Loyalty Points)] as CKP
+    [ProfilePage\n(Orders, Address, Voucher, Review)] as PRF
+    [OrderDetailPage] as ODP
     [WarrantyPage] as WR
+    [WishlistPage] as WL
+    [ComparePage] as CMP
+    [LoginPage / RegisterPage] as AUTHP
+  }
+
+  package "Pages (Admin / Staff)" {
+    [AdminDashboard] as ADASH
+    [AdminProducts] as APROD
+    [AdminOrders] as AORD
+    [AdminUsers] as AUSR
+    [AdminVouchers] as AVCH
+    [AdminWarranty] as AWAR
+    [AdminInventory] as AINV
+    [AdminReviews] as AREV
+    [AdminReports] as AREP
+    [AdminNotifications] as ANOT
+    [AdminFlashSale] as AFS
   }
 
   package "Shared Components" {
-    [Header / Navbar] as NAV
+    [Header\n(Search Live, Notif Bell, Cart)] as NAV
     [Footer] as FOOT
     [ProductCard] as PCARD
-    [ProductFilter] as PFILT
-    [VoucherInput] as VINP
-    [SearchBar] as SBAR
-    [Pagination] as PAG
-    [StarRating] as STAR
-    [NotificationBell] as NOTIF
+    [CompareBar] as CBAR
   }
 
-  package "State Management" {
-    [AuthContext] as ACTX
-    [CartContext] as CCTX
-    [WishlistContext] as WCTX
+  package "Context (State Management)" {
+    [AuthContext\n(user, login, logout)] as ACTX
+    [CartContext\n(cart, addToCart)] as CCTX
+    [ThemeContext\n(light/dark)] as TCTX
   }
 
-  package "API Layer" {
+  package "API Layer (axios)" {
     [axiosInstance\n(JWT Interceptor)] as AXI
     [authApi] as AAPI
     [productApi] as PAPI
     [cartApi] as CAPI
     [orderApi] as OAPI
     [voucherApi] as VAPI
+    [addressApi] as ADDAPI
+    [warrantyApi] as WAPI
+    [notificationApi] as NAPI
+    [reviewApi] as RAPI
+    [wishlistApi] as WIAPI
     [adminApi] as ADAPI
   }
-
-  [React Router v6] as ROUTER
 }
 
-package "🟢 Backend - NodeJS Express" {
+package "🟢 Backend - NodeJS + Express" {
   package "Middleware" {
-    [CORS] as CORS
+    [CORS\n(localhost:5173)] as CORS
     [Morgan Logger] as LOG
     [verifyToken (JWT)] as VJWT
-    [checkRole (RBAC)] as RBAC
+    [requireAdmin / requireStaff\n(RBAC)] as RBAC
     [errorHandler] as ERH
-    [multer (Upload)] as MULTER
+    [multer\n(Upload ảnh)] as MULTER
   }
 
   package "Routes" {
     [/api/auth/*] as RAUTH
     [/api/products/*] as RPROD
+    [/api/categories/*] as RCAT
+    [/api/brands/*] as RBRND
     [/api/cart/*] as RCART
     [/api/orders/*] as RORD
     [/api/reviews/*] as RREV
     [/api/vouchers/*] as RVCH
     [/api/wishlist/*] as RWISH
     [/api/warranty/*] as RWAR
-    [/api/admin/*] as RADM
+    [/api/addresses/*] as RADR
     [/api/notifications/*] as RNOT
+    [/api/admin/*] as RADM
   }
 
-  package "Controllers (MVC)" {
-    [AuthController] as CAU
-    [ProductController] as CPROD
-    [CartController] as CCART
-    [OrderController] as CORD
-    [VoucherController] as CVCH
-    [AdminController] as CADM
-    [WarrantyController] as CWAR
-    [ReportController] as CREP
-  }
-
-  package "Services (Business Logic)" {
-    [AuthService] as SAU
-    [ProductService] as SPROD
-    [CartService] as SCART
-    [OrderService] as SORD
-    [VoucherService] as SVCH
-    [InventoryService] as SINV
-    [LoyaltyService] as SLOY
-    [NotificationService] as SNOT
-  }
-
-  package "Models (mysql2)" {
-    [UserModel] as MU
-    [ProductModel] as MP
-    [OrderModel] as MO
-    [VoucherModel] as MV
-    [CartModel] as MC
-    [WarrantyModel] as MW
-    [ReviewModel] as MR
-    [InventoryModel] as MI
+  package "Controllers" {
+    [authController\n(register, login, profile)] as CAU
+    [productController\n(list, detail, filter)] as CPROD
+    [orderController\n(create, cancel, list)] as CORD
+    [adminController\n(users, reports, orders)] as CADM
   }
 }
 
-package "🗄️ Database - MySQL 8" {
-  database "htqlch_thietbi_cn" {
-    [users] as TU
-    [products] as TP
-    [categories] as TCA
-    [brands] as TB
-    [orders / order_items] as TO
-    [carts / cart_items] as TC
-    [vouchers / voucher_usages] as TV
-    [reviews] as TR
-    [warranty_requests] as TW
-    [inventory_logs] as TIL
-    [notifications] as TN
-    [wishlists] as TWISH
-    [product_specs / images] as TSPEC
+package "🗄️ Database - MySQL (XAMPP)" {
+  database "htqlch_thietbi_cn (utf8mb4)" {
+    [nguoi_dung\n(ho, ten_dem, ten)] as TND
+    [san_pham\n+ phi_van_chuyen] as TSP
+    [danh_muc / thuong_hieu] as TDM
+    [gio_hang / chi_tiet_gio_hang] as TGH
+    [don_hang / chi_tiet_don_hang\n(ma_voucher, ma_voucher_ship)] as TDH
+    [ma_giam_gia\n(product | shipping | freeship)] as TMG
+    [voucher_nguoi_dung\n/ lich_su_voucher] as TVD
+    [danh_gia\n(phan_hoi_admin)] as TDG
+    [yeu_cau_bao_hanh\n(hinh_thuc, lich_hen)] as TBHH
+    [lich_su_kho] as TLSK
+    [thong_bao] as TTB
+    [yeu_thich] as TYT
+    [anh_san_pham\n/ thong_so_ky_thuat] as TASP
+    [dia_chi_nguoi_dung\n(lat, lng)] as TDCND
+    [flash_sale / chi_tiet_flash_sale] as TFS
   }
 }
 
 '============ CONNECTIONS ============
-CLIENT --> ROUTER : HTTP/S Request
-ROUTER --> HP
-ROUTER --> SP
-ROUTER --> PDP
-ROUTER --> CP
-ROUTER --> AUTH
-ROUTER --> ADMIN
-
-HP --> NAV
-SP --> PFILT
-SP --> PCARD
-PDP --> STAR
-CP --> VINP
-AUTH --> ACTX
-
+CLIENT --> AXI : HTTPS Requests
 AXI --> RAUTH
 AXI --> RPROD
 AXI --> RCART
 AXI --> RORD
 AXI --> RVCH
+AXI --> RWISH
+AXI --> RWAR
+AXI --> RNOT
+AXI --> RADR
 AXI --> RADM
 
-RAUTH --> VJWT
 RAUTH --> CAU
 RPROD --> CPROD
 RCART --> VJWT
-RCART --> CCART
 RORD --> VJWT
 RORD --> CORD
-RVCH --> CVCH
 RADM --> VJWT
 RADM --> RBAC
 RADM --> CADM
 
-CAU --> SAU
-CPROD --> SPROD
-CCART --> SCART
-CORD --> SORD
-CORD --> SVCH
-CORD --> SLOY
-CORD --> SINV
-CADM --> CREP
+CAU --> TND
+CPROD --> TSP
+CPROD --> TDM
+CORD --> TDH
+CORD --> TMG
+CORD --> TVD
+CORD --> TLSK
+CORD --> TTB
+CADM --> TND
+CADM --> TDH
+CADM --> TMG
+CADM --> TBHH
 
-SAU --> MU
-SPROD --> MP
-SCART --> MC
-SORD --> MO
-SVCH --> MV
-SINV --> MI
-SLOY --> MU
-SNOT --> MR
-
-MU --> TU
-MP --> TP
-MO --> TO
-MV --> TV
-MC --> TC
-MW --> TW
-MR --> TR
-MI --> TIL
+AXI .> ACTX : "Lưu token"
+HP --> NAV
+HP --> PCARD
+SHP --> PCARD
+PDP --> CBAR
+CKP --> CCTX
+PRF --> ACTX
 
 @enduml

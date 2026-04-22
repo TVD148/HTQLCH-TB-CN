@@ -44,12 +44,13 @@ const register = async (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ success: false, errors: errors.array() });
 
-    const { name, email, password, phone, address, first_name, last_name } = req.body;
+    const { name, email, password, phone, address, first_name, middle_name, last_name } = req.body;
 
-    // Tính first_name và last_name tự động nếu frontend gửi full name
-    const nameParts   = name.trim().split(/\s+/);
-    const fName       = first_name || (nameParts.length >= 1 ? nameParts[nameParts.length - 1] : name);
-    const lName       = last_name  || (nameParts.length >= 2 ? nameParts[0] : '');
+    // Tách họ / tên đệm / tên từ họ tên đầy đủ
+    const nameParts = name.trim().split(/\s+/);
+    const ho        = last_name    || (nameParts.length >= 2 ? nameParts[0] : '');
+    const ten       = first_name   || (nameParts.length >= 1 ? nameParts[nameParts.length - 1] : name);
+    const ten_dem   = middle_name  || (nameParts.length >= 3 ? nameParts.slice(1, -1).join(' ') : null);
 
     const [existing] = await db.query(
       'SELECT ma_nguoi_dung FROM nguoi_dung WHERE email = ?', [email]
@@ -61,8 +62,8 @@ const register = async (req, res, next) => {
     const mat_khau_ma_hoa = await bcrypt.hash(password, 10);
 
     const [result] = await db.query(
-      'INSERT INTO nguoi_dung (ho_ten, ten, ho, email, mat_khau_ma_hoa, so_dien_thoai, dia_chi) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [name, fName, lName, email, mat_khau_ma_hoa, phone || null, address || null]
+      'INSERT INTO nguoi_dung (ho_ten, ho, ten_dem, ten, email, mat_khau_ma_hoa, so_dien_thoai, dia_chi) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [name, ho, ten_dem || null, ten, email, mat_khau_ma_hoa, phone || null, address || null]
     );
     const userId = result.insertId;
 
@@ -128,7 +129,7 @@ const login = async (req, res, next) => {
 const getMe = async (req, res, next) => {
   try {
     const [rows] = await db.query(
-      `SELECT ma_nguoi_dung AS id, ho_ten AS name, ten, ho, email, vai_tro AS role,
+      `SELECT ma_nguoi_dung AS id, ho_ten AS name, ho, ten_dem, ten, email, vai_tro AS role,
               so_dien_thoai AS phone, dia_chi AS address, anh_dai_dien AS avatar_url,
               diem_tich_luy AS loyalty_points, ngay_tao AS created_at
        FROM nguoi_dung WHERE ma_nguoi_dung = ?`,
@@ -141,13 +142,24 @@ const getMe = async (req, res, next) => {
 /** PUT /api/auth/profile */
 const updateProfile = async (req, res, next) => {
   try {
-    const { name, phone, address } = req.body;
+    const { name, ho, ten_dem, ten, phone, address } = req.body;
+
+    // Nếu gửi ho/ten_dem/ten riêng lẻ thì dùng luôn, nếu không thì tách từ name
+    let _ho = ho, _ten = ten, _ten_dem = ten_dem ?? null;
+    if (!_ho && !_ten && name) {
+      const parts = name.trim().split(/\s+/);
+      _ho      = parts.length >= 2 ? parts[0] : '';
+      _ten     = parts[parts.length - 1];
+      _ten_dem = parts.length >= 3 ? parts.slice(1, -1).join(' ') : null;
+    }
+    const fullName = name || [_ho, _ten_dem, _ten].filter(Boolean).join(' ');
+
     await db.query(
-      'UPDATE nguoi_dung SET ho_ten = ?, so_dien_thoai = ?, dia_chi = ? WHERE ma_nguoi_dung = ?',
-      [name, phone || null, address || null, req.user.id]
+      'UPDATE nguoi_dung SET ho_ten = ?, ho = ?, ten_dem = ?, ten = ?, so_dien_thoai = ?, dia_chi = ? WHERE ma_nguoi_dung = ?',
+      [fullName, _ho, _ten_dem, _ten, phone || null, address || null, req.user.id]
     );
     const [rows] = await db.query(
-      `SELECT ma_nguoi_dung AS id, ho_ten AS name, email, vai_tro AS role,
+      `SELECT ma_nguoi_dung AS id, ho_ten AS name, ho, ten_dem, ten, email, vai_tro AS role,
               so_dien_thoai AS phone, dia_chi AS address, diem_tich_luy AS loyalty_points
        FROM nguoi_dung WHERE ma_nguoi_dung = ?`,
       [req.user.id]
