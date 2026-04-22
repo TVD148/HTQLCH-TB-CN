@@ -64,6 +64,17 @@ router.put('/categories/:id', requireAdmin, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+router.delete('/categories/:id', requireAdmin, async (req, res, next) => {
+  try {
+    const [[cat]] = await db.query('SELECT ma_danh_muc FROM danh_muc WHERE ma_danh_muc=?', [req.params.id]);
+    if (!cat) return res.status(404).json({ success: false, message: 'Danh mục không tồn tại!' });
+    const [[{ cnt }]] = await db.query('SELECT COUNT(*) cnt FROM san_pham WHERE ma_danh_muc=?', [req.params.id]);
+    if (cnt > 0) return res.status(400).json({ success: false, message: `Không thể xóa! Danh mục đang có ${cnt} sản phẩm.` });
+    await db.query('DELETE FROM danh_muc WHERE ma_danh_muc=?', [req.params.id]);
+    res.json({ success: true, message: 'Đã xóa danh mục!' });
+  } catch (err) { next(err); }
+});
+
 // ─── THUONG HIEU (BRANDS) ───────────────────────────────────
 router.post('/brands', requireAdmin, async (req, res, next) => {
   try {
@@ -87,6 +98,17 @@ router.put('/brands/:id', requireAdmin, async (req, res, next) => {
       [name, description, country || null, req.params.id]
     );
     res.json({ success: true, message: 'Cập nhật thương hiệu thành công!' });
+  } catch (err) { next(err); }
+});
+
+router.delete('/brands/:id', requireAdmin, async (req, res, next) => {
+  try {
+    const [[brand]] = await db.query('SELECT ma_thuong_hieu FROM thuong_hieu WHERE ma_thuong_hieu=?', [req.params.id]);
+    if (!brand) return res.status(404).json({ success: false, message: 'Thương hiệu không tồn tại!' });
+    const [[{ cnt }]] = await db.query('SELECT COUNT(*) cnt FROM san_pham WHERE ma_thuong_hieu=?', [req.params.id]);
+    if (cnt > 0) return res.status(400).json({ success: false, message: `Không thể xóa! Thương hiệu đang có ${cnt} sản phẩm.` });
+    await db.query('DELETE FROM thuong_hieu WHERE ma_thuong_hieu=?', [req.params.id]);
+    res.json({ success: true, message: 'Đã xóa thương hiệu!' });
   } catch (err) { next(err); }
 });
 
@@ -214,9 +236,10 @@ router.get('/inventory/logs', requireStaff, async (req, res, next) => {
 
 router.post('/inventory/import', requireStaff, async (req, res, next) => {
   try {
-    const { product_id, quantity, note } = req.body;
-    if (!product_id || !quantity || quantity < 1) {
-      return res.status(400).json({ success: false, message: 'Thiếu thông tin' });
+    const { product_id, quantity_change, type = 'import', note } = req.body;
+
+    if (!product_id || !quantity_change || quantity_change < 1) {
+      return res.status(400).json({ success: false, message: 'Thiếu thông tin hoặc số lượng không hợp lệ' });
     }
 
     const [p] = await db.query(
@@ -225,18 +248,26 @@ router.post('/inventory/import', requireStaff, async (req, res, next) => {
     if (!p.length) return res.status(404).json({ success: false, message: 'Không tìm thấy sản phẩm' });
 
     const stockBefore = p[0].stock_quantity;
-    const stockAfter  = stockBefore + parseInt(quantity);
+    // Loại xuất/hỏng → trừ kho; loại nhập/điều chỉnh → cộng kho
+    const delta = (type === 'export' || type === 'damage') ? -Math.abs(quantity_change) : Math.abs(quantity_change);
+    const stockAfter = stockBefore + delta;
+
+    if (stockAfter < 0) {
+      return res.status(400).json({ success: false, message: `Không đủ hàng! Tồn hiện tại: ${stockBefore}` });
+    }
 
     await db.query('UPDATE san_pham SET so_luong_ton = ? WHERE ma_san_pham = ?', [stockAfter, product_id]);
     await db.query(
       `INSERT INTO lich_su_kho (ma_san_pham, ma_nguoi_dung, so_luong_bien_dong, ton_kho_truoc, ton_kho_sau, loai_giao_dich, ghi_chu)
-       VALUES (?, ?, ?, ?, ?, 'nhap', ?)`,
-      [product_id, req.user.id, quantity, stockBefore, stockAfter, note || 'Nhập kho thủ công']
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [product_id, req.user.id, delta, stockBefore, stockAfter, type, note || null]
     );
 
-    res.json({ success: true, message: `Nhập kho thành công! Số lượng mới: ${stockAfter}` });
+    const typeLabel = { import: 'Nhập kho', export: 'Xuất kho', adjustment: 'Điều chỉnh', damage: 'Ghi nhận hỏng hóc' };
+    res.json({ success: true, message: `${typeLabel[type] || 'Cập nhật'} thành công! Tồn mới: ${stockAfter}` });
   } catch (err) { next(err); }
 });
+
 
 // ─── DANH GIA (REVIEWS) ───────────────────────────────────────
 router.get('/reviews', requireAdmin, async (req, res, next) => {
@@ -287,19 +318,21 @@ router.patch('/reviews/:id/reply', requireAdmin, async (req, res, next) => {
 
     // Gửi notification cho user
     const [review] = await db.query(
-      `SELECT dg.ma_nguoi_dung, sp.ten_san_pham
+      `SELECT dg.ma_nguoi_dung, sp.ten_san_pham, sp.duong_dan AS product_slug
        FROM danh_gia dg JOIN san_pham sp ON sp.ma_san_pham = dg.ma_san_pham
        WHERE dg.ma_danh_gia = ?`, [req.params.id]
     );
     if (review.length) {
+      const { ma_nguoi_dung, ten_san_pham, product_slug } = review[0];
+      const link = `/products/${product_slug}?tab=reviews#review-${req.params.id}`;
       await db.query(
         `INSERT INTO thong_bao (ma_nguoi_dung, tieu_de, noi_dung, loai, ma_tham_chieu)
          VALUES (?, ?, ?, 'danh_gia', ?)`,
         [
-          review[0].ma_nguoi_dung,
+          ma_nguoi_dung,
           'TechStore đã trả lời đánh giá của bạn',
-          `Admin đã phản hồi đánh giá sản phẩm "${review[0].ten_san_pham}" của bạn. Nhấn để xem chi tiết.`,
-          req.params.id.toString()
+          `Admin đã phản hồi đánh giá sản phẩm "${ten_san_pham}" của bạn. Nhấn để xem phản hồi.`,
+          link
         ]
       );
     }

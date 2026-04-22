@@ -32,7 +32,6 @@ const NAV_CONFIG = [
   { type: 'link', to: '/admin/users',         icon: <Users size={15}/>,        label: 'Khách hàng',  roles: ['admin'] },
   { type: 'link', to: '/admin/inventory',     icon: <Archive size={15}/>,      label: 'Kho hàng',    roles: ['admin'] },
   { type: 'link', to: '/admin/reports',       icon: <BarChart2 size={15}/>,    label: 'Báo cáo',     roles: ['admin'] },
-  { type: 'link', to: '/admin/notifications', icon: <Bell size={15}/>,         label: 'Thông báo',   roles: ['admin'] },
 ];
 
 // Khi là staff: show riêng từng link (không gom nhóm)

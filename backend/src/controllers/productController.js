@@ -153,6 +153,7 @@ const getProductBySlug = async (req, res, next) => {
 
     const [reviews] = await db.query(
       `SELECT dg.ma_danh_gia AS id, dg.so_sao AS rating, dg.binh_luan AS comment, dg.ngay_tao AS created_at,
+              dg.phan_hoi_admin AS admin_reply, dg.ngay_phan_hoi AS admin_reply_at,
               nd.ho_ten AS user_name, nd.anh_dai_dien AS avatar_url
        FROM danh_gia dg
        JOIN nguoi_dung nd ON nd.ma_nguoi_dung = dg.ma_nguoi_dung

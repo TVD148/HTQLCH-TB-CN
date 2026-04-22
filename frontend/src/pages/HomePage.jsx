@@ -63,6 +63,7 @@ export default function HomePage() {
   const [claimedIds,   setClaimedIds] = useState(new Set());
   const [wishlistIds,  setWishlistIds] = useState([]);
   const [testimonials, setTestimonials] = useState([]);
+  const [showAllVouchers, setShowAllVouchers] = useState(false);
 
   // Load danh sách voucher đã nhận từ DB (persist sau reload)
   useEffect(() => {
@@ -445,121 +446,120 @@ export default function HomePage() {
       )}
 
       {/* ─── VOUCHERS ────────────────────────────────── */}
-      {publicVouchers.length > 0 && (
-        <section className="section-sm" style={{ paddingTop: 0 }}>
-          <div className="container">
-            <div style={{
-              background: 'var(--surface-2)',
-              border: '1px solid var(--border)',
-              padding: '24px 28px', borderRadius: 'var(--radius-xl)',
-            }}>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: 20, color: 'var(--text-primary)' }}>🏷️ Mã giảm giá</h2>
+      {(() => {
+        const now = new Date();
+        const active = publicVouchers.filter(v => {
+          const exp = v.expired_at || v.expires_at;
+          return exp ? new Date(exp) > now : true;
+        });
+        if (active.length === 0) return null;
+        const visible = showAllVouchers ? active : active.slice(0, 4);
+        const hasMore = !showAllVouchers && active.length > 4;
+        return (
+          <section className="section-sm" style={{ paddingTop: 0 }}>
+            <div className="container">
               <div style={{
-                display: 'flex', gap: 16, overflowX: 'auto', paddingBottom: 8,
-                scrollBehavior: 'smooth', msOverflowStyle: 'none', scrollbarWidth: 'none'
+                background: 'var(--surface-2)',
+                border: '1px solid var(--border)',
+                padding: '24px 28px', borderRadius: 'var(--radius-xl)',
               }}>
-                {publicVouchers.map(v => {
-                  let discountTitle = '';
-                  let subLabel = '';
-                  const isFree = v.discount_type === 'freeship';
-                  const isPct  = v.discount_type === 'percent';
-                  if (isPct)   { discountTitle = `GIẢM ${v.discount_value}%`; subLabel = v.max_discount_amount ? `Tối đa ${fmt(v.max_discount_amount)}` : ''; }
-                  else if (isFree) { discountTitle = 'MIỄN SHIP'; subLabel = 'Freeship toàn quốc'; }
-                  else { discountTitle = `GIẢM ${fmt(v.discount_value).replace(/\s?₫/,'Đ')}`; subLabel = ''; }
-
-                  const accentColor = isFree ? 'var(--emerald)' : 'var(--accent)';
-                  const accentHex   = isFree ? '#10B981'         : '#3B82F6';
-
-                  return (
-                    <div key={v.id} style={{
-                      display: 'flex', minWidth: 300, maxWidth: 340, flexShrink: 0,
-                      background: 'var(--surface-1)',
-                      border: `1px solid ${accentHex}33`,
-                      borderRadius: 12, overflow: 'hidden',
-                      transition: 'box-shadow 0.2s',
-                    }}
-                      onMouseEnter={e => e.currentTarget.style.boxShadow = `0 4px 20px ${accentHex}30`}
-                      onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
-                    >
-                      {/* Left notch side */}
-                      <div style={{
-                        width: 80, flexShrink: 0,
-                        background: `linear-gradient(160deg, ${accentHex}, ${accentHex}BB)`,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        flexDirection: 'column', gap: 6, padding: '12px 0',
-                        position: 'relative',
-                        clipPath: 'polygon(0 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 0 100%)',
-                      }}>
-                        <Ticket size={26} color="rgba(255,255,255,0.9)" />
-                        <span style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.8)', fontWeight: 800, textAlign: 'center', letterSpacing: 0.5 }}>
-                          {isFree ? 'FREE\nSHIP' : isPct ? 'SALE' : 'GIẢM'}
-                        </span>
-                      </div>
-
-                      {/* Dashed separator */}
-                      <div style={{
-                        width: 1, borderLeft: `2px dashed ${accentHex}44`,
-                        margin: '12px 0', flexShrink: 0,
-                      }} />
-
-                      {/* Right: Info */}
-                      <div style={{ padding: '14px 16px', flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+                  <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>🏷️ Mã giảm giá</h2>
+                  {active.length > 4 && (
+                    <button onClick={() => setShowAllVouchers(s => !s)}
+                      style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600 }}>
+                      {showAllVouchers ? 'Thu gọn ↑' : `Xem thêm (${active.length - 4}) ↓`}
+                    </button>
+                  )}
+                </div>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(4, 1fr)',
+                  gap: 16,
+                }}>
+                  {visible.map(v => {
+                    let discountTitle = '';
+                    let subLabel = '';
+                    const isFree = v.discount_type === 'freeship';
+                    const isPct  = v.discount_type === 'percent';
+                    if (isPct)   { discountTitle = `GIẢM ${v.discount_value}%`; subLabel = v.max_discount_amount ? `Tối đa ${fmt(v.max_discount_amount)}` : ''; }
+                    else if (isFree) { discountTitle = 'MIỄN SHIP'; subLabel = 'Freeship toàn quốc'; }
+                    else { discountTitle = `GIẢM ${fmt(v.discount_value).replace(/\s?₫/,'D')}`; subLabel = ''; }
+                    const accentHex = isFree ? '#10B981' : '#3B82F6';
+                    const accentColor = isFree ? 'var(--emerald)' : 'var(--accent)';
+                    return (
+                      <div key={v.id} style={{
+                        display: 'flex',
+                        background: 'var(--surface-1)',
+                        border: `1px solid ${accentHex}33`,
+                        borderRadius: 12, overflow: 'hidden',
+                        transition: 'box-shadow 0.2s',
+                      }}
+                        onMouseEnter={e => e.currentTarget.style.boxShadow = `0 4px 20px ${accentHex}30`}
+                        onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
+                      >
                         <div style={{
-                          fontSize: '0.98rem', fontWeight: 800,
-                          color: accentColor, marginBottom: 4,
-                        }}>{discountTitle}</div>
-                        {subLabel && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: 4 }}>{subLabel}</div>}
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: 12 }}>
-                          HSD: {v.expires_at ? new Date(v.expires_at).toLocaleDateString('vi-VN') : '12/12/2026'}
+                          width: 72, flexShrink: 0,
+                          background: `linear-gradient(160deg, ${accentHex}, ${accentHex}BB)`,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          flexDirection: 'column', gap: 6, padding: '12px 0',
+                          clipPath: 'polygon(0 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 0 100%)',
+                        }}>
+                          <Ticket size={22} color="rgba(255,255,255,0.9)" />
+                          <span style={{ fontSize: '0.55rem', color: 'rgba(255,255,255,0.85)', fontWeight: 800, textAlign: 'center', letterSpacing: 0.5 }}>
+                            {isFree ? 'FREE\nSHIP' : isPct ? 'SALE' : 'GIẢM'}
+                          </span>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                          <button
-                            onClick={async () => {
-                              if (!user) { navigate('/login'); return; }
-                              try {
-                                await voucherApi.claim(v.id);
-                                setClaimedIds(prev => new Set([...prev, v.id]));
-                                toast.success(`Đã nhận voucher ${v.code}! Xem tại "Voucher của tôi"`);
-                              } catch (err) {
-                                toast.error(err.response?.data?.message || 'Không thể nhận vôucher!');
-                              }
-                            }}
-                            style={{
-                              display: 'inline-flex', alignItems: 'center', gap: 5,
-                              background: claimedIds.has(v.id) ? 'var(--surface-3)' : accentColor,
-                              color: claimedIds.has(v.id) ? 'var(--text-muted)' : '#fff',
-                              border: 'none',
-                              padding: '5px 14px', borderRadius: 20,
-                              fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer',
-                              transition: 'opacity 0.15s',
-                              pointerEvents: claimedIds.has(v.id) ? 'none' : 'auto',
-                            }}
-                            onMouseEnter={e => { if (!claimedIds.has(v.id)) e.currentTarget.style.opacity = '0.85'; }}
-                            onMouseLeave={e => e.currentTarget.style.opacity = '1'}
-                          >
-                            {claimedIds.has(v.id) ? '✓ Đã nhận' : 'Nhận'}
-                          </button>
-                          <button
-                            onClick={() => setInfoVoucher(v)}
-                            style={{
-                              background: 'none', border: 'none', cursor: 'pointer',
-                              fontSize: '0.72rem', color: accentColor, fontWeight: 600,
-                              padding: '2px 6px', borderRadius: 4,
-                              transition: 'opacity 0.15s',
-                            }}
-                            onMouseEnter={e => e.currentTarget.style.opacity = '0.7'}
-                            onMouseLeave={e => e.currentTarget.style.opacity = '1'}
-                          >Điều kiện</button>
+                        <div style={{ width: 1, borderLeft: `2px dashed ${accentHex}44`, margin: '12px 0', flexShrink: 0 }} />
+                        <div style={{ padding: '12px 14px', flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: '0.9rem', fontWeight: 800, color: accentColor, marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{discountTitle}</div>
+                          {subLabel && <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: 2 }}>{subLabel}</div>}
+                          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: 10 }}>
+                            HSD: {(() => { const exp = v.expired_at||v.expires_at; return exp ? new Date(exp).toLocaleDateString('vi-VN') : ''; })()}
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <button
+                              onClick={async () => {
+                                if (!user) { navigate('/login'); return; }
+                                try {
+                                  await voucherApi.claim(v.id);
+                                  setClaimedIds(prev => new Set([...prev, v.id]));
+                                  toast.success(`Đã nhận voucher ${v.code}!`);
+                                } catch (err) {
+                                  toast.error(err.response?.data?.message || 'Không thể nhận!');
+                                }
+                              }}
+                              style={{
+                                display: 'inline-flex', alignItems: 'center',
+                                background: claimedIds.has(v.id) ? 'var(--surface-3)' : accentColor,
+                                color: claimedIds.has(v.id) ? 'var(--text-muted)' : '#fff',
+                                border: 'none', padding: '4px 12px', borderRadius: 20,
+                                fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer',
+                                pointerEvents: claimedIds.has(v.id) ? 'none' : 'auto',
+                              }}
+                            >{claimedIds.has(v.id) ? '✓ Đã nhận' : 'Nhận'}</button>
+                            <button onClick={() => setInfoVoucher(v)}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.7rem', color: accentColor, fontWeight: 600 }}
+                            >Điều kiện</button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
+                {hasMore && (
+                  <div style={{ textAlign: 'center', marginTop: 16 }}>
+                    <button onClick={() => setShowAllVouchers(true)}
+                      style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--accent)', cursor: 'pointer', padding: '6px 20px', borderRadius: 20, fontSize: '0.83rem', fontWeight: 600 }}>
+                      Xem thêm {active.length - 4} voucher khác ↓
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
-          </div>
-        </section>
-      )}
+          </section>
+        );
+      })()}
 
       {/* ─── LAPTOP GAMING + VĂN PHÒNG ─────────────── */}
       <section className="section">

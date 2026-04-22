@@ -65,14 +65,19 @@ export default function Header() {
     setShowNotifMenu(false);
 
     if (n.type === 'don_hang' || n.type === 'order') {
-      // ref_id là mã đơn hàng (VD: DH-22042026-001)
       if (n.ref_id) navigate(`/orders/${n.ref_id}`);
       else navigate('/profile?tab=orders');
     } else if (n.type === 'bao_hanh' || n.type === 'warranty') {
-      // ref_id là ma_bao_hanh (số), điều hướng đến trang bảo hành
       navigate('/warranty');
     } else if (n.type === 'voucher' || n.type === 'su_kien') {
       navigate('/profile?tab=vouchers');
+    } else if (n.type === 'danh_gia') {
+      // ref_id chứa link đầy đủ: /products/:slug?tab=reviews#review-:id
+      if (n.ref_id && n.ref_id.startsWith('/products/')) {
+        navigate(n.ref_id);
+      } else {
+        navigate('/profile');
+      }
     } else {
       navigate('/profile');
     }

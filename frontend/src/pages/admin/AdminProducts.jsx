@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
-import { Plus, Pencil, Trash2, X, Search } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Plus, Pencil, Trash2, X, Search, Upload } from 'lucide-react';
 import { adminApi, categoryApi, brandApi, productApi } from '../../api';
 import toast from 'react-hot-toast';
+import api from '../../api/axiosInstance';
 
 const fmt = (p) => new Intl.NumberFormat('vi-VN',{style:'currency',currency:'VND'}).format(p||0);
 
@@ -33,6 +34,8 @@ export default function AdminProducts() {
   const [deleting,   setDeleting]   = useState(null);
   const [page,       setPage]       = useState(1);
   const [total,      setTotal]      = useState(0);
+  const [uploading,  setUploading]  = useState(false);
+  const fileInputRef = useRef(null);
 
   const load = (p=page) => {
     setLoading(true);
@@ -48,7 +51,33 @@ export default function AdminProducts() {
     load(1);
   }, []);
 
+  // Debounce: tự động tìm khi gõ (400ms)
+  useEffect(() => {
+    const timer = setTimeout(() => { load(1); }, 400);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   const setF = (k, v) => setForm(f => ({...f, [k]: v}));
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const data = new FormData();
+    data.append('image', file);
+    setUploading(true);
+    try {
+      const res = await api.post('/upload/image', data, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      setF('thumbnail', res.data.url);
+      toast.success('Tải ảnh thành công!');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Không thể tải ảnh!');
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -100,13 +129,17 @@ export default function AdminProducts() {
       </div>
 
       {/* Search */}
-      <div style={{display:'flex',gap:10,marginBottom:16}}>
-        <div style={{position:'relative',flex:1,maxWidth:360}}>
+      <div style={{marginBottom:16}}>
+        <div style={{position:'relative',maxWidth:400}}>
           <Search size={14} style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',color:'var(--text-muted)'}}/>
           <input className="form-control" style={{paddingLeft:32}} placeholder="Tìm tên sản phẩm..."
-            value={search} onChange={e=>setSearch(e.target.value)} onKeyDown={e=>e.key==='Enter'&&load(1)}/>
+            value={search} onChange={e=>setSearch(e.target.value)}/>
+          {search && (
+            <button onClick={()=>setSearch('')}
+              style={{position:'absolute',right:8,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',padding:2,display:'flex',alignItems:'center'}}
+            >×</button>
+          )}
         </div>
-        <button className="btn btn-outline btn-sm" onClick={()=>load(1)}>Tìm</button>
       </div>
 
       <div className="card"><div className="card-body" style={{padding:0}}>
@@ -168,8 +201,18 @@ export default function AdminProducts() {
                       onChange={e=>{setF('name',e.target.value);if(!editId)setF('slug',genSlug(e.target.value));}}/>
                   </div>
                   <div className="form-group" style={{margin:0}}>
-                    <label className="form-label">Slug</label>
-                    <input className="form-control" value={form.slug} onChange={e=>setF('slug',e.target.value)}/>
+                    <label className="form-label" style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                      <span>Slug {!editId && <span style={{fontSize:'0.72rem',color:'var(--accent)',fontWeight:500}}>✨ Tự động tạo</span>}</span>
+                      <button type="button" onClick={()=>setF('slug',genSlug(form.name))}
+                        style={{fontSize:'0.72rem',background:'none',border:'none',color:'var(--accent)',cursor:'pointer',padding:0,fontWeight:600}}>
+                        🔄 Tạo lại
+                      </button>
+                    </label>
+                    <input className="form-control" value={form.slug} onChange={e=>setF('slug',e.target.value)}
+                      placeholder="ten-san-pham-tu-dong"/>
+                    {form.slug && <div style={{fontSize:'0.72rem',color:'var(--text-muted)',marginTop:4}}>
+                      🔗 /shop/<strong style={{color:'var(--accent)'}}>{form.slug}</strong>
+                    </div>}
                   </div>
                 </div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
@@ -185,7 +228,16 @@ export default function AdminProducts() {
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12}}>
                   <div className="form-group" style={{margin:0}}>
                     <label className="form-label">Tồn kho</label>
-                    <input className="form-control" type="number" value={form.stock_quantity} onChange={e=>setF('stock_quantity',e.target.value)}/>
+                    <input
+                      className="form-control"
+                      type="number"
+                      value={form.stock_quantity}
+                      readOnly
+                      style={{background:'var(--surface-3)',color:'var(--text-muted)',cursor:'not-allowed'}}
+                    />
+                    <div style={{fontSize:'0.7rem',color:'var(--text-muted)',marginTop:3}}>
+                      🔒 Quản lý qua <strong>Nhập kho</strong>
+                    </div>
                   </div>
                   <div className="form-group" style={{margin:0}}>
                     <label className="form-label">Cảnh báo tồn</label>
@@ -215,9 +267,32 @@ export default function AdminProducts() {
                   </div>
                 </div>
                 <div className="form-group" style={{margin:0}}>
-                  <label className="form-label">URL ảnh thumbnail</label>
-                  <input className="form-control" value={form.thumbnail} onChange={e=>setF('thumbnail',e.target.value)} placeholder="https://..."/>
-                  {form.thumbnail && <img src={form.thumbnail} alt="" style={{marginTop:8,width:80,height:60,objectFit:'cover',borderRadius:6}} onError={e=>e.target.style.display='none'}/>}
+                  <label className="form-label" style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                    <span>URL ảnh thumbnail</span>
+                    <span style={{fontSize:'0.72rem',color:'var(--text-muted)'}}>hoặc chọn ảnh từ máy</span>
+                  </label>
+                  <div style={{display:'flex',gap:8}}>
+                    <input className="form-control" value={form.thumbnail} onChange={e=>setF('thumbnail',e.target.value)} placeholder="https://..."/>
+                    <button type="button"
+                      onClick={()=>fileInputRef.current?.click()}
+                      disabled={uploading}
+                      className="btn btn-outline btn-sm"
+                      style={{whiteSpace:'nowrap',flexShrink:0,minWidth:110,display:'flex',alignItems:'center',gap:6}}
+                    >
+                      <Upload size={14}/>
+                      {uploading ? 'Đang tải...' : 'Chọn ảnh'}
+                    </button>
+                    <input ref={fileInputRef} type="file" accept="image/*" style={{display:'none'}} onChange={handleImageUpload}/>
+                  </div>
+                  {form.thumbnail && (
+                    <div style={{marginTop:8,position:'relative',display:'inline-block'}}>
+                      <img src={form.thumbnail} alt="" style={{width:120,height:90,objectFit:'cover',borderRadius:8,border:'1px solid var(--border)'}} onError={e=>e.target.style.display='none'}/>
+                      <button type="button"
+                        onClick={()=>setF('thumbnail','')}
+                        style={{position:'absolute',top:-6,right:-6,width:20,height:20,borderRadius:'50%',background:'var(--red)',border:'none',color:'#fff',cursor:'pointer',fontSize:12,display:'flex',alignItems:'center',justifyContent:'center',lineHeight:1}}
+                      >×</button>
+                    </div>
+                  )}
                 </div>
                 <div className="form-group" style={{margin:0}}>
                   <label className="form-label">Mô tả ngắn</label>

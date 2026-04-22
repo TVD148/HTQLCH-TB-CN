@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Heart, BarChart2, ShoppingCart, Star, Eye } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Heart, BarChart2, ShoppingCart, Star, Eye, Phone } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { useCompare } from '../context/CompareContext';
@@ -17,6 +17,7 @@ export default function ProductCard({ product, wishlistIds = [], onWishlistToggl
   const { user } = useAuth();
   const { addToCart } = useCart();
   const { addToCompare, isInCompare } = useCompare();
+  const navigate = useNavigate();
 
   // Sync isWished when wishlistIds prop changes (e.g. after page load fetches real data)
   const [isWished, setIsWished] = useState(false);
@@ -204,14 +205,23 @@ export default function ProductCard({ product, wishlistIds = [], onWishlistToggl
           </div>
         </div>
 
-        <button
-          className="btn btn-primary btn-full btn-sm product-card__cart-btn"
-          onClick={handleAddCart}
-          disabled={product.stock_quantity === 0}
-        >
-          <ShoppingCart size={14} />
-          {product.stock_quantity === 0 ? 'Hết hàng' : 'Thêm vào giỏ'}
-        </button>
+        {product.stock_quantity === 0 ? (
+          <button
+            className="btn btn-full btn-sm"
+            style={{ background:'rgba(245,158,11,0.12)', color:'#f59e0b', border:'1.5px solid rgba(245,158,11,0.4)', fontWeight:700 }}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate('/contact'); }}
+          >
+            <Phone size={14} /> Liên hệ đặt hàng
+          </button>
+        ) : (
+          <button
+            className="btn btn-primary btn-full btn-sm product-card__cart-btn"
+            onClick={handleAddCart}
+          >
+            <ShoppingCart size={14} />
+            Thêm vào giỏ
+          </button>
+        )}
       </div>
     </Link>
   );

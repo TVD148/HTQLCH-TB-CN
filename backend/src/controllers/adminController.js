@@ -3,14 +3,31 @@ const db = require('../config/database');
 /** GET /api/admin/reports/revenue */
 const getRevenueReport = async (req, res, next) => {
   try {
-    const { from, to, group_by = 'day' } = req.query;
-    const fromDate = from || new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0,10);
-    const toDate   = to   || new Date().toISOString().slice(0,10);
+    const { year, quarter, month } = req.query;
+    const y = parseInt(year) || new Date().getFullYear();
 
-    const dateFormat = group_by === 'month' ? '%Y-%m' : '%Y-%m-%d';
+    // Xác định khoảng thời gian
+    let fromDate, toDate;
+    if (month) {
+      const m = parseInt(month);
+      fromDate = `${y}-${String(m).padStart(2,'0')}-01`;
+      const lastDay = new Date(y, m, 0).getDate();
+      toDate = `${y}-${String(m).padStart(2,'0')}-${lastDay}`;
+    } else if (quarter) {
+      const q = parseInt(quarter);
+      const startMonth = (q - 1) * 3 + 1;
+      const endMonth   = q * 3;
+      fromDate = `${y}-${String(startMonth).padStart(2,'0')}-01`;
+      const lastDay = new Date(y, endMonth, 0).getDate();
+      toDate = `${y}-${String(endMonth).padStart(2,'0')}-${lastDay}`;
+    } else {
+      fromDate = `${y}-01-01`;
+      toDate   = `${y}-12-31`;
+    }
 
+    // Biểu đồ doanh thu theo từng ngày trong khoảng
     const [revenueChart] = await db.query(
-      `SELECT DATE_FORMAT(ngay_tao, '${dateFormat}') AS period,
+      `SELECT DATE_FORMAT(ngay_tao, '%Y-%m-%d') AS period,
               COUNT(*) AS order_count,
               SUM(tong_tien) AS revenue
        FROM don_hang
@@ -41,7 +58,7 @@ const getRevenueReport = async (req, res, next) => {
        WHERE dh.trang_thai IN ('da_giao','da_xac_nhan','dang_giao')
        AND DATE(dh.ngay_tao) BETWEEN ? AND ?
        GROUP BY sp.ma_san_pham
-       ORDER BY total_sold DESC LIMIT 10`,
+       ORDER BY total_sold DESC LIMIT 3`,
       [fromDate, toDate]
     );
 
@@ -55,7 +72,7 @@ const getRevenueReport = async (req, res, next) => {
     res.json({
       success: true,
       data: {
-        period: { from: fromDate, to: toDate },
+        period: { from: fromDate, to: toDate, year: y, quarter: quarter || null, month: month || null },
         summary: summary[0],
         revenue_chart: revenueChart,
         top_products: topProducts,

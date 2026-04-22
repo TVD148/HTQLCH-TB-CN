@@ -1,9 +1,15 @@
 import { useState, useEffect } from 'react';
-import { Plus, Pencil, X, Tag } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Tag, Search } from 'lucide-react';
 import { adminApi, brandApi } from '../../api';
 import toast from 'react-hot-toast';
 
-const emptyForm = { name: '', description: '', country: '' };
+const genSlug = (name) => name.toLowerCase()
+  .replace(/[àáảãạâầấẩẫậăằắẳẵặ]/g,'a').replace(/[èéẻẽẹêềếểễệ]/g,'e')
+  .replace(/[ìíỉĩị]/g,'i').replace(/[òóỏõọôồốổỗộơờớởỡợ]/g,'o')
+  .replace(/[ùúủũụưừứửữự]/g,'u').replace(/[ỳýỷỹỵ]/g,'y').replace(/đ/g,'d')
+  .replace(/[^a-z0-9\s-]/g,'').replace(/\s+/g,'-').replace(/-+/g,'-').trim();
+
+const emptyForm = { name: '', slug: '', description: '', country: '' };
 
 export default function AdminBrands() {
   const [brands,    setBrands]    = useState([]);
@@ -11,15 +17,24 @@ export default function AdminBrands() {
   const [form,      setForm]      = useState(emptyForm);
   const [editId,    setEditId]    = useState(null);
   const [saving,    setSaving]    = useState(false);
+  const [search,    setSearch]    = useState('');
 
   const load = () => brandApi.getAll().then(r => setBrands(r.data.data || []));
   useEffect(() => { document.title = 'Thương hiệu – Admin'; load(); }, []);
 
-  const openAdd = () => { setForm(emptyForm); setEditId(null); setShowModal(true); };
+  const openAdd  = () => { setForm(emptyForm); setEditId(null); setShowModal(true); };
   const openEdit = (b) => {
-    setForm({ name: b.name, description: b.description || '', country: b.country || '' });
-    setEditId(b.id);
-    setShowModal(true);
+    setForm({ name: b.name, slug: b.slug||'', description: b.description||'', country: b.country||'' });
+    setEditId(b.id); setShowModal(true);
+  };
+
+  const handleDelete = async (id, name) => {
+    if (!confirm(`Xóa thương hiệu "${name}"?`)) return;
+    try {
+      await adminApi.deleteBrand(id);
+      toast.success('Đã xóa thương hiệu!');
+      load();
+    } catch (err) { toast.error(err.response?.data?.message || 'Không thể xóa!'); }
   };
 
   const handleSubmit = async (e) => {
@@ -34,14 +49,16 @@ export default function AdminBrands() {
         await adminApi.createBrand(form);
         toast.success('Thêm thương hiệu thành công!');
       }
-      setShowModal(false); setForm(emptyForm); setEditId(null);
-      load();
+      setShowModal(false); setForm(emptyForm); setEditId(null); load();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Có lỗi xảy ra!');
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   };
+
+  // Lọc theo search
+  const filtered = brands.filter(b =>
+    !search.trim() || b.name.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <div>
@@ -52,25 +69,38 @@ export default function AdminBrands() {
         </button>
       </div>
 
+      {/* Search */}
+      <div style={{marginBottom:16}}>
+        <div style={{position:'relative',maxWidth:400}}>
+          <Search size={14} style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',color:'var(--text-muted)'}}/>
+          <input className="form-control" style={{paddingLeft:32}} placeholder="Tìm tên thương hiệu..."
+            value={search} onChange={e=>setSearch(e.target.value)}/>
+          {search && (
+            <button onClick={()=>setSearch('')}
+              style={{position:'absolute',right:8,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',padding:2,display:'flex',alignItems:'center'}}
+            >×</button>
+          )}
+        </div>
+      </div>
+
       <div className="card"><div className="card-body" style={{ padding: 0 }}>
         <table className="data-table">
           <thead>
             <tr>
-              <th>ID</th>
               <th>Tên thương hiệu</th>
               <th>Slug</th>
               <th>Quốc gia</th>
               <th>Mô tả</th>
-              <th>Số SP</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
-            {brands.length === 0 ? (
-              <tr><td colSpan={7} style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)' }}>Chưa có thương hiệu nào</td></tr>
-            ) : brands.map(b => (
+            {filtered.length === 0 ? (
+              <tr><td colSpan={5} style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)' }}>
+                {search ? 'Không tìm thấy thương hiệu nào' : 'Chưa có thương hiệu nào'}
+              </td></tr>
+            ) : filtered.map(b => (
               <tr key={b.id}>
-                <td style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>#{b.id}</td>
                 <td>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <Tag size={14} style={{ color: 'var(--accent)' }} />
@@ -82,11 +112,15 @@ export default function AdminBrands() {
                 <td style={{ color: 'var(--text-muted)', fontSize: '0.83rem', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {b.description || '—'}
                 </td>
-                <td style={{ fontWeight: 600 }}>{b.product_count || 0}</td>
                 <td>
-                  <button className="btn btn-ghost btn-sm" onClick={() => openEdit(b)} title="Chỉnh sửa">
-                    <Pencil size={13} />
-                  </button>
+                  <div style={{display:'flex',gap:6}}>
+                    <button className="btn btn-ghost btn-sm" onClick={() => openEdit(b)} title="Chỉnh sửa">
+                      <Pencil size={13} />
+                    </button>
+                    <button className="btn btn-ghost btn-sm" style={{color:'var(--red)'}} onClick={() => handleDelete(b.id, b.name)} title="Xóa">
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -108,30 +142,37 @@ export default function AdminBrands() {
                 <div className="form-group" style={{ margin: 0 }}>
                   <label className="form-label">Tên thương hiệu *</label>
                   <input
-                    className="form-control"
-                    required
+                    className="form-control" required
                     placeholder="Ví dụ: ASUS, Dell, Apple..."
                     value={form.name}
-                    onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setForm(f => ({ ...f, name: val, ...(!editId && { slug: genSlug(val) }) }));
+                    }}
                   />
+                </div>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                    <span>Slug {!editId && <span style={{fontSize:'0.72rem',color:'var(--accent)',fontWeight:500}}>✨ Tự động tạo</span>}</span>
+                    <button type="button" onClick={()=>setForm(f=>({...f,slug:genSlug(f.name)}))}
+                      style={{fontSize:'0.72rem',background:'none',border:'none',color:'var(--accent)',cursor:'pointer',padding:0,fontWeight:600}}>
+                      🔄 Tạo lại
+                    </button>
+                  </label>
+                  <input className="form-control" value={form.slug} onChange={e=>setForm(f=>({...f,slug:e.target.value}))} placeholder="ten-thuong-hieu"/>
+                  {form.slug && <div style={{fontSize:'0.72rem',color:'var(--text-muted)',marginTop:4}}>
+                    🔗 /shop?brand=<strong style={{color:'var(--accent)'}}>{form.slug}</strong>
+                  </div>}
                 </div>
                 <div className="form-group" style={{ margin: 0 }}>
                   <label className="form-label">Quốc gia</label>
-                  <input
-                    className="form-control"
-                    placeholder="Ví dụ: Đài Loan, Mỹ, Hàn Quốc..."
-                    value={form.country}
-                    onChange={e => setForm(f => ({ ...f, country: e.target.value }))}
-                  />
+                  <input className="form-control" placeholder="Ví dụ: Đài Loan, Mỹ, Hàn Quốc..."
+                    value={form.country} onChange={e => setForm(f => ({ ...f, country: e.target.value }))}/>
                 </div>
                 <div className="form-group" style={{ margin: 0 }}>
                   <label className="form-label">Mô tả</label>
-                  <input
-                    className="form-control"
-                    placeholder="Mô tả ngắn về thương hiệu..."
-                    value={form.description}
-                    onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                  />
+                  <input className="form-control" placeholder="Mô tả ngắn về thương hiệu..."
+                    value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}/>
                 </div>
               </div>
               <div className="modal__footer">

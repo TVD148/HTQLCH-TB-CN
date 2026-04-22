@@ -92,6 +92,7 @@ export const adminApi = {
   getCategories:     ()            => api.get('/admin/categories'),
   createCategory:    (data)        => api.post('/admin/categories', data),
   updateCategory:    (id, data)    => api.put(`/admin/categories/${id}`, data),
+  deleteCategory:    (id)          => api.delete(`/admin/categories/${id}`),
   createProduct:     (data)        => api.post('/admin/products', data),
   updateProduct:     (id, data)    => api.put(`/admin/products/${id}`, data),
   deleteProduct:     (id)          => api.delete(`/admin/products/${id}`),
@@ -101,6 +102,7 @@ export const adminApi = {
   approveReview:     (id)          => api.patch(`/admin/reviews/${id}/approve`),
   createBrand:       (data)        => api.post('/admin/brands', data),
   updateBrand:       (id, data)    => api.put(`/admin/brands/${id}`, data),
+  deleteBrand:       (id)          => api.delete(`/admin/brands/${id}`),
 };
 
 export const addressApi = {

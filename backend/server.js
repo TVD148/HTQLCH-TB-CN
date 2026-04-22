@@ -18,6 +18,7 @@ const warrantyRoutes    = require('./src/routes/warranty');
 const notifRoutes       = require('./src/routes/notifications');
 const adminRoutes       = require('./src/routes/admin');
 const addressRoutes     = require('./src/routes/addresses');
+const uploadRoutes      = require('./src/routes/upload');
 
 // Import middleware
 const errorHandler = require('./src/middleware/errorHandler');
@@ -60,6 +61,7 @@ app.use(`${API}/warranty`,      warrantyRoutes);
 app.use(`${API}/notifications`, notifRoutes);
 app.use(`${API}/admin`,         adminRoutes);
 app.use(`${API}/addresses`,     addressRoutes);
+app.use(`${API}/upload`,        uploadRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

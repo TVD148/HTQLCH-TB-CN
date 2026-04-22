@@ -1,6 +1,6 @@
-﻿import { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ShoppingCart, Heart, BarChart2, Star } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
+import { ShoppingCart, Heart, BarChart2, Star, Phone } from 'lucide-react';
 import { productApi, wishlistApi } from '../api';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
@@ -24,6 +24,8 @@ export default function ProductDetailPage() {
   const [activeTab, setActiveTab] = useState('specs');
   const [wishlisted, setWishlisted] = useState(false);
 
+  const location = useLocation();
+
   useEffect(() => {
     setLoading(true);
     productApi.getBySlug(slug)
@@ -31,6 +33,22 @@ export default function ProductDetailPage() {
       .catch(() => navigate('/'))
       .finally(() => setLoading(false));
   }, [slug]);
+
+  // Xử lý ?tab=reviews#review-ID từ notification
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('tab') === 'reviews') {
+      setActiveTab('reviews');
+      // Scroll tới review sau khi DOM render
+      if (location.hash) {
+        const reviewId = location.hash.replace('#', '');
+        setTimeout(() => {
+          const el = document.getElementById(reviewId);
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 500);
+      }
+    }
+  }, [location.search, location.hash]);
 
   const handleAddCart = async () => {
     if (!user) { toast.error('Vui lòng đăng nhập!'); navigate('/login'); return; }
@@ -120,10 +138,10 @@ export default function ProductDetailPage() {
           <div style={{marginBottom:16,fontSize:'0.85rem'}}>
             {product.stock_quantity > 0
               ? <span style={{color:'var(--emerald)'}}>✅ Còn hàng ({product.stock_quantity} sản phẩm)</span>
-              : <span style={{color:'var(--red)'}}>❌ Hết hàng</span>}
+              : <span style={{color:'#f59e0b',fontWeight:600}}>📦 Liên hệ để đặt trước — sản phẩm đang được nhập kho</span>}
           </div>
 
-          {product.stock_quantity > 0 && (
+          {product.stock_quantity > 0 ? (
             <div style={{display:'flex',alignItems:'center',gap:16,marginBottom:24}}>
               <div className="qty-control" style={{ height: 54, padding: '0 8px', borderRadius: 'var(--radius-md)' }}>
                 <button className="qty-btn" style={{ width: 36, height: 36, fontSize: '1.2rem' }} onClick={() => qty > 1 && setQty(q => q-1)}>−</button>
@@ -133,6 +151,25 @@ export default function ProductDetailPage() {
               <button className="btn btn-primary" style={{flex:1,height:54,fontSize:'1.05rem',borderRadius:'var(--radius-md)',boxShadow:'var(--glow)'}} onClick={handleAddCart}>
                 <ShoppingCart size={20}/> Thêm vào giỏ hàng
               </button>
+            </div>
+          ) : (
+            <div style={{marginBottom:24}}>
+              <Link
+                to="/contact"
+                className="btn btn-full"
+                style={{
+                  height:54, fontSize:'1.05rem', borderRadius:'var(--radius-md)',
+                  background:'rgba(245,158,11,0.12)', color:'#f59e0b',
+                  border:'2px solid rgba(245,158,11,0.4)', fontWeight:700,
+                  display:'flex', alignItems:'center', justifyContent:'center', gap:10,
+                  textDecoration:'none',
+                }}
+              >
+                <Phone size={20}/> Liên hệ đặt hàng trước
+              </Link>
+              <div style={{fontSize:'0.78rem',color:'var(--text-muted)',textAlign:'center',marginTop:8}}>
+                Nhân viên sẽ liên hệ và báo giá khi hàng về
+              </div>
             </div>
           )}
 
@@ -200,7 +237,10 @@ export default function ProductDetailPage() {
               {!product.reviews?.length
                 ? <div style={{color:'var(--text-muted)',textAlign:'center',padding:24}}>Chưa có đánh giá nào</div>
                 : product.reviews.map(r=>(
-                  <div key={r.id} style={{padding:'14px 0',borderBottom:'1px solid var(--border)'}}>
+                  <div key={r.id} id={`review-${r.id}`} style={{
+                    padding:'14px 0',borderBottom:'1px solid var(--border)',
+                    scrollMarginTop: 80,
+                  }}>
                     <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
                       <div style={{width:32,height:32,borderRadius:'50%',background:'var(--accent-light)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,color:'var(--accent)'}}>{r.user_name?.charAt(0)}</div>
                       <div>
@@ -209,7 +249,36 @@ export default function ProductDetailPage() {
                       </div>
                       <span style={{marginLeft:'auto',fontSize:'0.75rem',color:'var(--text-muted)'}}>{new Date(r.created_at).toLocaleDateString('vi-VN')}</span>
                     </div>
-                    {r.comment && <p style={{fontSize:'0.88rem',color:'var(--text-secondary)',lineHeight:1.6}}>{r.comment}</p>}
+                    {r.comment && <p style={{fontSize:'0.88rem',color:'var(--text-secondary)',lineHeight:1.6,marginBottom: r.admin_reply ? 10 : 0}}>{r.comment}</p>}
+
+                    {/* Admin reply */}
+                    {r.admin_reply && (
+                      <div style={{
+                        marginTop: 10, marginLeft: 42,
+                        padding: '10px 14px',
+                        background: 'rgba(59,130,246,0.06)',
+                        border: '1px solid rgba(59,130,246,0.18)',
+                        borderLeft: '3px solid var(--accent)',
+                        borderRadius: '0 8px 8px 0',
+                      }}>
+                        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+                          <div style={{
+                            width:24,height:24,borderRadius:'50%',
+                            background:'var(--accent)',
+                            display:'flex',alignItems:'center',justifyContent:'center',
+                          }}>
+                            <span style={{fontSize:'0.6rem',color:'#fff',fontWeight:800}}>TC</span>
+                          </div>
+                          <span style={{fontWeight:700,fontSize:'0.82rem',color:'var(--accent)'}}>TechStore</span>
+                          {r.admin_reply_at && (
+                            <span style={{fontSize:'0.72rem',color:'var(--text-muted)',marginLeft:'auto'}}>
+                              {new Date(r.admin_reply_at).toLocaleDateString('vi-VN')}
+                            </span>
+                          )}
+                        </div>
+                        <p style={{fontSize:'0.85rem',color:'var(--text-secondary)',lineHeight:1.6,margin:0}}>{r.admin_reply}</p>
+                      </div>
+                    )}
                   </div>
                 ))
               }

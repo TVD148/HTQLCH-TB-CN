@@ -9,6 +9,7 @@ export default function LoginPage() {
   const [form, setForm] = useState({ email: '', password: '' });
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [lockedMsg, setLockedMsg] = useState('');
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -16,6 +17,7 @@ export default function LoginPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLockedMsg('');
     if (!form.email || !form.password) { toast.error('Vui lòng điền đầy đủ thông tin!'); return; }
     setLoading(true);
     try {
@@ -24,7 +26,12 @@ export default function LoginPage() {
       toast.success(`Xin chào, ${res.data.data.user.name}! 👋`);
       navigate(from, { replace: true });
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Đăng nhập thất bại!');
+      const msg = err.response?.data?.message || 'Đăng nhập thất bại!';
+      if (err.response?.status === 403) {
+        setLockedMsg(msg);
+      } else {
+        toast.error(msg);
+      }
     } finally { setLoading(false); }
   };
 
@@ -76,6 +83,21 @@ export default function LoginPage() {
               </div>
             </div>
 
+            {lockedMsg && (
+              <div style={{
+                background: 'rgba(239,68,68,0.1)',
+                border: '1px solid rgba(239,68,68,0.4)',
+                borderLeft: '4px solid #ef4444',
+                borderRadius: 8, padding: '12px 16px', marginBottom: 16,
+                display: 'flex', alignItems: 'flex-start', gap: 10,
+              }}>
+                <span style={{ fontSize: '1.2rem' }}>⛔</span>
+                <div>
+                  <div style={{ fontWeight: 700, color: 'var(--red)', marginBottom: 2 }}>Tài khoản bị khóa</div>
+                  <div style={{ fontSize: '0.83rem', color: 'var(--text-secondary)' }}>{lockedMsg}</div>
+                </div>
+              </div>
+            )}
             <form onSubmit={handleSubmit}>
               <div className="form-group">
                 <label className="form-label">Email</label>
