@@ -91,64 +91,63 @@ export default function HomePage() {
   useEffect(() => {
     document.title = 'TechStore – Thiết bị công nghệ chính hãng';
 
-    Promise.all([
-      productApi.getAll({ sort: 'price_desc', limit: 48 }),
-      categoryApi.getAll(),
-      voucherApi.getPublic().catch(() => ({ data: { data: [] } })),
-      // Flash sale từ DB
-      axios.get('http://localhost:3001/api/admin/flash-sale').catch(() => ({ data: { data: [] } })),
-      // Testimonials từ DB
-      axios.get('http://localhost:3001/api/reviews/featured').catch(() => ({ data: { data: [] } })),
-    ]).then(([prodRes, catRes, voucherRes, flashRes, reviewRes]) => {
-      const allProds = prodRes.data.data || [];
-      const vouchers = voucherRes.data?.data || [];
-      setPublicVouchers(vouchers);
+    (async () => {
+      try {
+        const [prodRes, catRes, voucherRes, reviewRes] = await Promise.all([
+          productApi.getAll({ sort: 'price_desc', limit: 48 }),
+          categoryApi.getAll(),
+          voucherApi.getPublic().catch(() => ({ data: { data: [] } })),
+          axios.get('http://localhost:3001/api/reviews/featured').catch(() => ({ data: { data: [] } })),
+        ]);
 
-      // Hero: top 3 giảm giá cao nhất
-      const saleProds = allProds
-        .filter(p => p.sale_price && p.price > p.sale_price)
-        .sort((a, b) => ((b.price - b.sale_price) / b.price) - ((a.price - a.sale_price) / a.price));
-      setHeroProducts(saleProds.slice(0, 3));
+        const allProds = prodRes.data.data || [];
+        setPublicVouchers(voucherRes.data?.data || []);
 
-      // Flash sale từ DB
-      const activeSale = (flashRes.data.data || []).find(fs => fs.is_active);
-      if (activeSale) {
-        setFlashEndTime(activeSale.end_time);
-        // Lấy sản phẩm flash sale từ DB
-        axios.get(`http://localhost:3001/api/admin/flash-sale/${activeSale.id}/products`)
-          .then(r => {
-            const flashProds = (r.data.data || []).map(item => ({
-              ...allProds.find(p => p.id === item.product_id) || {},
-              sale_price: item.flash_price,
-              id: item.product_id,
-            })).filter(p => p.id);
-            setFlashProducts(flashProds.slice(0, 4));
-          })
-          .catch(() => setFlashProducts(saleProds.slice(0, 4)));
-      } else {
-        setFlashProducts(saleProds.slice(0, 4));
-      }
+        // Hero: top 3 giảm giá cao nhất
+        const saleProds = allProds
+          .filter(p => p.sale_price && p.price > p.sale_price)
+          .sort((a, b) => ((b.price - b.sale_price) / b.price) - ((a.price - a.sale_price) / a.price));
+        setHeroProducts(saleProds.slice(0, 3));
 
-      // Testimonials từ DB
-      const dbReviews = reviewRes.data.data || [];
-      setTestimonials(dbReviews);
+        // Testimonials
+        setTestimonials(reviewRes.data.data || []);
 
-      // Category IDs
-      const cats = catRes.data.data || [];
-      const gamingCat  = cats.find(c => c.slug === 'laptop-gaming');
-      const officeCat  = cats.find(c => c.slug === 'laptop-van-phong');
-      if (gamingCat) setGamingCatId(gamingCat.id);
-      if (officeCat) setOfficeCatId(officeCat.id);
+        // Category IDs
+        const cats = catRes.data.data || [];
+        const gamingCat = cats.find(c => c.slug === 'laptop-gaming');
+        const officeCat = cats.find(c => c.slug === 'laptop-van-phong');
+        if (gamingCat) setGamingCatId(gamingCat.id);
+        if (officeCat) setOfficeCatId(officeCat.id);
 
-      // Load gaming + office products
-      const reqs = [];
-      if (gamingCat) reqs.push(productApi.getAll({ category: gamingCat.id, limit: 4, sort: 'popular' }));
-      if (officeCat) reqs.push(productApi.getAll({ category: officeCat.id, limit: 4, sort: 'popular' }));
-      return Promise.all(reqs).then(results => {
+        const reqs = [];
+        if (gamingCat) reqs.push(productApi.getAll({ category: gamingCat.id, limit: 4, sort: 'popular' }));
+        if (officeCat) reqs.push(productApi.getAll({ category: officeCat.id, limit: 4, sort: 'popular' }));
+        const results = await Promise.all(reqs);
         if (gamingCat) setGamingProducts(results[0]?.data?.data || []);
         if (officeCat) setOfficeProducts(results[gamingCat ? 1 : 0]?.data?.data || []);
-      });
-    }).finally(() => setLoading(false));
+
+        // ─── Flash Sale — public endpoint, không cần auth ───────
+        const flashRes = await axios.get('http://localhost:3001/api/products/flash-sale/active')
+          .catch(() => ({ data: { data: null } }));
+        const activeSale = flashRes.data.data;
+        if (activeSale) {
+          setFlashEndTime(activeSale.end_time);
+          const pRes = await axios.get(`http://localhost:3001/api/products/flash-sale/${activeSale.id}/products`)
+            .catch(() => ({ data: { data: [] } }));
+          const flashProds = (pRes.data.data || []).map(item => ({
+            ...allProds.find(p => p.id === item.product_id) || {},
+            sale_price: item.flash_price,
+            id: item.product_id,
+          })).filter(p => p.id);
+          setFlashProducts(flashProds);
+        } else {
+          setFlashProducts([]);
+          setFlashEndTime(null);
+        }
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
   const loadTab = useCallback(async (tabKey) => {
@@ -376,7 +375,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ─── FLASH SALE ──────────────────────────────── */}
+      {/* ─── FLASH SALE ─── chỉ hiện khi có sale đang chạy VÀ có sản phẩm */}
+      {flashEndTime && flashProducts.length > 0 && (
       <section className="section-sm">
         <div className="container">
           <div style={{
@@ -399,7 +399,6 @@ export default function HomePage() {
               </div>
               <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.15)' }} />
               <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Kết thúc sau:</span>
-              {/* Countdown with aligned labels */}
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
                 {[hH, hM, hS].map((v, i) => (
                   <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
@@ -413,10 +412,8 @@ export default function HomePage() {
                     <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', letterSpacing: 0.5, fontWeight: 600 }}>
                       {['GIỜ', 'PHÚT', 'GIÂY'][i]}
                     </span>
-                    {i < 2 && <span style={{ position: 'absolute', top: 6, fontSize: '1.1rem', color: '#ef4444', fontWeight: 900 }}></span>}
                   </div>
                 ))}
-                {/* colon separators */}
               </div>
               <Link to="/shop?sort=price_desc" className="btn btn-sm" style={{
                 background: '#ef4444', color: '#fff', border: 'none',
@@ -426,14 +423,18 @@ export default function HomePage() {
               </Link>
             </div>
 
-            {/* Products */}
+            {/* Products — 4 per row, any count */}
             <div style={{ padding: '20px 28px' }}>
               {loading ? (
                 <div className="spinner-wrap"><div className="spinner" /></div>
               ) : flashProducts.length === 0 ? (
                 <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: 24 }}>Không có sản phẩm đang sale</p>
               ) : (
-                <div className="products-grid">
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(4, 1fr)',
+                  gap: 16,
+                }}>
                   {flashProducts.map(p => <ProductCard key={p.id} product={p} wishlistIds={wishlistIds} />)}
                 </div>
               )}
@@ -441,6 +442,7 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+      )}
 
       {/* ─── VOUCHERS ────────────────────────────────── */}
       {publicVouchers.length > 0 && (

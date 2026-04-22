@@ -224,7 +224,11 @@ function OrderCard({ o, onOrderUpdated, existingReviews }) {
     <div style={{ background:'var(--surface-2)', border:'1px solid var(--border)', borderRadius:10, marginBottom:12, overflow:'hidden' }}>
       <div onClick={toggleExpand} style={{ padding:'14px 18px', cursor:'pointer', display:'flex', flexDirection:'column', gap:8 }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-          <span style={{ fontWeight:700, fontSize:'0.88rem' }}>#{o.order_code}</span>
+          <span
+            onClick={(e) => { e.stopPropagation(); navigate(`/orders/${o.order_code}`); }}
+            style={{ fontWeight:700, fontSize:'0.88rem', color:'var(--accent)', cursor:'pointer', textDecoration:'underline', textUnderlineOffset:3 }}
+            title="Xem chi tiết đơn hàng"
+          >#{o.order_code}</span>
           <span style={{ fontSize:'0.78rem', fontWeight:700, color:st.color, background:st.color+'18', padding:'3px 10px', borderRadius:20 }}>{st.label}</span>
         </div>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', fontSize:'0.8rem', color:'var(--text-muted)' }}>
@@ -271,9 +275,16 @@ function OrderCard({ o, onOrderUpdated, existingReviews }) {
             </div>
           ) : <div style={{ padding:10, textAlign:'center', color:'var(--text-muted)' }}>Lỗi tải chi tiết</div>}
 
-          {/* Mua lại */}
-          {o.status === 'da_giao' && details?.items?.length > 0 && (
-            <div style={{ marginTop:14, display:'flex', justifyContent:'flex-end', gap:8 }}>
+          {/* Action buttons */}
+          <div style={{ marginTop:14, display:'flex', justifyContent:'flex-end', gap:8 }}>
+            <button
+              onClick={(e) => { e.stopPropagation(); navigate(`/orders/${o.order_code}`); }}
+              className="btn btn-ghost btn-sm"
+              style={{ padding:'7px 14px', fontSize:'0.82rem', display:'flex', alignItems:'center', gap:5 }}
+            >
+              📄 Xem chi tiết
+            </button>
+            {o.status === 'da_giao' && details?.items?.length > 0 && (
               <button
                 onClick={handleReorder}
                 disabled={reordering}
@@ -282,8 +293,8 @@ function OrderCard({ o, onOrderUpdated, existingReviews }) {
               >
                 {reordering ? 'Đang thêm...' : '🔄 Mua lại'}
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       )}
 

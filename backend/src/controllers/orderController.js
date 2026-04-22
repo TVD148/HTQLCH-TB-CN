@@ -273,18 +273,19 @@ const getOrderById = async (req, res, next) => {
               mgg.ma_code AS voucher_code
        FROM don_hang dh
        LEFT JOIN ma_giam_gia mgg ON mgg.ma_voucher = dh.ma_voucher
-       WHERE dh.ma_don_hang = ? AND dh.ma_nguoi_dung = ?`,
-      [id, req.user.id]
+       WHERE (dh.ma_don_hang = ? OR dh.ma_code = ?) AND dh.ma_nguoi_dung = ?`,
+      [id, id, req.user.id]
     );
 
     if (!orders.length) {
       return res.status(404).json({ success: false, message: 'Đơn hàng không tìm thấy' });
     }
 
+    const numericId = orders[0].ma_don_hang;
     const [items] = await db.query(
       `SELECT ma_chi_tiet AS id, ma_san_pham AS product_id, ten_san_pham AS product_name,
               anh_san_pham AS product_thumbnail, don_gia AS unit_price, so_luong AS quantity, thanh_tien AS subtotal
-       FROM chi_tiet_don_hang WHERE ma_don_hang = ?`, [id]
+       FROM chi_tiet_don_hang WHERE ma_don_hang = ?`, [numericId]
     );
 
     res.json({ success: true, data: { ...orders[0], items } });

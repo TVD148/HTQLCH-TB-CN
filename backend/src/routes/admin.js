@@ -121,6 +121,8 @@ router.get('/warranty', requireStaff, async (req, res, next) => {
       `SELECT ycbh.ma_bao_hanh AS id, ycbh.so_serial, ycbh.mo_ta_su_co AS issue_description,
               ycbh.trang_thai AS status, ycbh.ghi_chu_xu_ly AS resolution_note,
               ycbh.ngay_tiep_nhan AS received_at, ycbh.ngay_hoan_thanh AS completed_at,
+              ycbh.hinh_thuc AS shipping_method, ycbh.so_dien_thoai AS contact_phone,
+              ycbh.lich_hen AS appointment_time,
               ctdh.ten_san_pham AS product_name, ctdh.anh_san_pham AS product_thumbnail,
               nd.ho_ten AS customer_name, nd.so_dien_thoai AS phone,
               nv.ho_ten AS staff_name
@@ -138,7 +140,7 @@ router.get('/warranty', requireStaff, async (req, res, next) => {
 router.patch('/warranty/:id/status', requireStaff, async (req, res, next) => {
   try {
     const { status, resolution_note } = req.body;
-    const validStatuses = ['cho_xu_ly','dang_xu_ly','hoan_thanh','tu_choi'];
+    const validStatuses = ['cho_xu_ly','da_tiep_nhan','dang_xu_ly','hoan_thanh','tu_choi'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ success: false, message: 'Trạng thái không hợp lệ' });
     }
@@ -149,7 +151,7 @@ router.patch('/warranty/:id/status', requireStaff, async (req, res, next) => {
       [status, resolution_note, req.user.id, status === 'hoan_thanh' ? new Date() : null, req.params.id]
     );
 
-    // Gửi thông báo cho khách hàng
+    // Gửi thông báo cho khách hàng với tất cả trạng thái
     const [ycbh] = await db.query(
       `SELECT ycbh.ma_nguoi_dung, ctdh.ten_san_pham
        FROM yeu_cau_bao_hanh ycbh
@@ -158,22 +160,22 @@ router.patch('/warranty/:id/status', requireStaff, async (req, res, next) => {
     );
     if (ycbh.length) {
       const statusLabels = {
-        dang_xu_ly: 'đang được xử lý',
-        hoan_thanh: 'đã hoàn tất',
-        tu_choi:    'đã bị từ chối',
+        cho_xu_ly:    'đang chờ xử lý',
+        da_tiep_nhan: 'đã được tiếp nhận',
+        dang_xu_ly:   'đang được xử lý',
+        hoan_thanh:   'đã hoàn tất',
+        tu_choi:      'đã bị từ chối',
       };
-      if (statusLabels[status]) {
-        await db.query(
-          `INSERT INTO thong_bao (ma_nguoi_dung, tieu_de, noi_dung, loai, ma_tham_chieu)
-           VALUES (?, ?, ?, 'bao_hanh', ?)`,
-          [
-            ycbh[0].ma_nguoi_dung,
-            `Bảo hành #${req.params.id} ${statusLabels[status]}`,
-            `Yêu cầu bảo hành sản phẩm "${ycbh[0].ten_san_pham}" ${statusLabels[status]}.${resolution_note ? ' Ghi chú: ' + resolution_note : ''}`,
-            req.params.id.toString()
-          ]
-        );
-      }
+      await db.query(
+        `INSERT INTO thong_bao (ma_nguoi_dung, tieu_de, noi_dung, loai, ma_tham_chieu)
+         VALUES (?, ?, ?, 'bao_hanh', ?)`,
+        [
+          ycbh[0].ma_nguoi_dung,
+          `Bảo hành #${req.params.id} ${statusLabels[status]}`,
+          `Yêu cầu bảo hành sản phẩm "${ycbh[0].ten_san_pham}" ${statusLabels[status]}.${resolution_note ? ' Ghi chú: ' + resolution_note : ''}`,
+          req.params.id.toString()
+        ]
+      );
     }
 
     res.json({ success: true, message: 'Cập nhật bảo hành thành công!' });
@@ -428,6 +430,15 @@ router.delete('/flash-sale/:id/products/:pid', requireStaff, async (req, res, ne
       [req.params.id, req.params.pid]
     );
     res.json({ success: true, message: 'Đã xóa sản phẩm khỏi flash sale' });
+  } catch (err) { next(err); }
+});
+
+// DELETE /api/admin/flash-sale/:id — Xóa cả flash sale
+router.delete('/flash-sale/:id', requireStaff, async (req, res, next) => {
+  try {
+    await db.query('DELETE FROM chi_tiet_flash_sale WHERE ma_flash_sale=?', [req.params.id]);
+    await db.query('DELETE FROM flash_sale WHERE ma_flash_sale=?', [req.params.id]);
+    res.json({ success: true, message: 'Đã xóa flash sale' });
   } catch (err) { next(err); }
 });
 
