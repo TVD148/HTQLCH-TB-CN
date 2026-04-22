@@ -187,7 +187,11 @@ export default function ProductDetailPage() {
           )}
 
           {activeTab==='desc' && (
-            <div style={{color:'var(--text-secondary)',lineHeight:1.8,fontSize:'0.9rem',whiteSpace:'pre-wrap'}}>{product.description||'Chưa có mô tả chi tiết.'}</div>
+            product.description ? (
+              <div style={{color:'var(--text-secondary)',lineHeight:1.8,fontSize:'0.9rem'}} dangerouslySetInnerHTML={{__html: product.description}} />
+            ) : (
+              <div style={{color:'var(--text-secondary)',lineHeight:1.8,fontSize:'0.9rem',whiteSpace:'pre-wrap'}}>Chưa có mô tả chi tiết.</div>
+            )
           )}
 
           {activeTab==='reviews' && (

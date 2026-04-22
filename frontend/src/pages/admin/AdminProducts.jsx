@@ -8,7 +8,7 @@ const fmt = (p) => new Intl.NumberFormat('vi-VN',{style:'currency',currency:'VND
 const emptyForm = {
   name:'', slug:'', description:'', short_desc:'', price:'', sale_price:'',
   stock_quantity:0, min_stock_alert:5, category_id:'', brand_id:'',
-  thumbnail:'', is_active:1, is_featured:0
+  thumbnail:'', is_active:1, is_featured:0, specs: []
 };
 
 const genSlug = (name) => name.toLowerCase()
@@ -65,14 +65,21 @@ export default function AdminProducts() {
     } catch (err) { toast.error(err.response?.data?.message || 'Có lỗi xảy ra!'); }
   };
 
-  const openEdit = (p) => {
-    setForm({
-      name: p.name, slug: p.slug, description: p.description||'', short_desc: p.short_desc||'',
-      price: p.price, sale_price: p.sale_price||'', stock_quantity: p.stock_quantity,
-      min_stock_alert: p.min_stock_alert||5, category_id: p.category_id||'',
-      brand_id: p.brand_id||'', thumbnail: p.thumbnail||'', is_active: p.is_active, is_featured: p.is_featured,
-    });
-    setEditId(p.id); setShowModal(true);
+  const openEdit = async (p) => {
+    try {
+      const res = await productApi.getBySlug(p.slug);
+      const detail = res.data.data;
+      setForm({
+        name: detail.name, slug: detail.slug, description: detail.description||'', short_desc: detail.short_desc||'',
+        price: detail.price, sale_price: detail.sale_price||'', stock_quantity: detail.stock_quantity,
+        min_stock_alert: detail.min_stock_alert||5, category_id: detail.category_id||'',
+        brand_id: detail.brand_id||'', thumbnail: detail.thumbnail||'', is_active: detail.is_active, is_featured: detail.is_featured,
+        specs: detail.specs || []
+      });
+      setEditId(detail.id); setShowModal(true);
+    } catch (err) {
+      toast.error('Không thể tải thông tin sản phẩm');
+    }
   };
 
   const handleDelete = async (id) => {
@@ -225,6 +232,40 @@ export default function AdminProducts() {
                   <select className="form-control" value={form.is_active} onChange={e=>setF('is_active',parseInt(e.target.value))}>
                     <option value={1}>Đang bán</option><option value={0}>Ẩn</option>
                   </select>
+                </div>
+
+                <div style={{ marginTop: 16 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <label className="form-label" style={{ margin: 0 }}>Thông số kỹ thuật</label>
+                    <button type="button" className="btn btn-outline btn-sm" onClick={() => setF('specs', [...form.specs, { spec_name: '', spec_value: '' }])}>
+                      <Plus size={14} /> Thêm thông số
+                    </button>
+                  </div>
+                  {form.specs.map((s, idx) => (
+                    <div key={idx} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                      <input className="form-control" placeholder="Tên (VD: CPU)" value={s.spec_name}
+                        onChange={e => {
+                          const ns = [...form.specs];
+                          ns[idx].spec_name = e.target.value;
+                          setF('specs', ns);
+                        }} style={{ flex: 1 }} />
+                      <input className="form-control" placeholder="Giá trị (VD: Core i5)" value={s.spec_value}
+                        onChange={e => {
+                          const ns = [...form.specs];
+                          ns[idx].spec_value = e.target.value;
+                          setF('specs', ns);
+                        }} style={{ flex: 2 }} />
+                      <button type="button" className="btn btn-ghost" style={{ color: 'var(--red)', padding: '0 10px' }}
+                        onClick={() => {
+                          const ns = [...form.specs];
+                          ns.splice(idx, 1);
+                          setF('specs', ns);
+                        }}>
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  ))}
+                  {form.specs.length === 0 && <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Chưa có thông số nào.</div>}
                 </div>
               </div>
               <div className="modal__footer">

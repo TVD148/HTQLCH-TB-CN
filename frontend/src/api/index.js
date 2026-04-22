@@ -58,18 +58,20 @@ export const wishlistApi = {
 
 export const reviewApi = {
   create: (data) => api.post('/reviews', data),
+  getByProduct: (productId) => api.get(`/reviews/product/${productId}`),
+  getMine: () => api.get('/reviews/mine'),
+};
+
+export const notificationApi = {
+  getAll: () => api.get('/notifications'),
+  markRead: (id) => api.patch(`/notifications/${id}/read`),
+  markAllRead: () => api.patch('/notifications/read-all'),
 };
 
 export const warrantyApi = {
   create:              (data) => api.post('/warranty', data),
   getAll:              ()     => api.get('/warranty'),
   getEligibleProducts: ()     => api.get('/warranty/eligible-products'),
-};
-
-export const notificationApi = {
-  getAll:  ()   => api.get('/notifications'),
-  markRead:(id) => api.patch(`/notifications/${id}/read`),
-  readAll: ()   => api.patch('/notifications/read-all'),
 };
 
 export const adminApi = {

@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  User, Package, MapPin, Star, Lock, LogOut,
+  User, Package, MapPin, Star, Lock, LogOut, Ticket,
   ChevronRight, Plus, Trash2, CheckCircle2, Edit2,
   Navigation, Search, X, Home, Briefcase, Map,
+  ChevronDown, ChevronUp, Copy, Clock
 } from 'lucide-react';
-import { authApi, orderApi, addressApi } from '../api';
+import { authApi, orderApi, addressApi, voucherApi, reviewApi } from '../api';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 
@@ -27,6 +28,7 @@ function Sidebar({ user, tab, setTab, onLogout }) {
   const menu = [
     { key: 'info',     icon: <User size={16}/>,     label: 'Thông tin tài khoản' },
     { key: 'orders',   icon: <Package size={16}/>,   label: 'Lịch sử đơn hàng' },
+    { key: 'vouchers', icon: <Ticket size={16}/>,    label: 'Voucher của tôi' },
     { key: 'address',  icon: <MapPin size={16}/>,    label: 'Địa chỉ đã lưu' },
     { key: 'reviews',  icon: <Star size={16}/>,      label: 'Đánh giá đơn hàng' },
     { key: 'password', icon: <Lock size={16}/>,      label: 'Đổi mật khẩu' },
@@ -121,23 +123,176 @@ function InfoPanel({ user, updateUser }) {
   );
 }
 
+// ─── MODAL ĐÁNH GIÁ SẢN PHẨM ───────────────────────────────────
+function ReviewModal({ item, onClose, onReviewed }) {
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const submit = async () => {
+    setLoading(true);
+    try {
+      await reviewApi.create({
+        product_id: item.product_id,
+        order_item_id: item.id,
+        rating,
+        comment
+      });
+      toast.success('Đánh giá thành công! Cảm ơn bạn.');
+      onReviewed();
+      onClose();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Có lỗi xảy ra!');
+    } finally { setLoading(false); }
+  };
+
+  return (
+    <div onClick={onClose} style={{ position:'fixed', inset:0, zIndex:9999, background:'rgba(0,0,0,0.6)', display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
+      <div onClick={e=>e.stopPropagation()} style={{ background:'var(--surface-1)', borderRadius:12, width:'100%', maxWidth:400, padding:24 }}>
+        <h3 style={{ marginTop:0, marginBottom:16, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+          Đánh giá sản phẩm
+          <button onClick={onClose} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text-muted)' }}><X size={18}/></button>
+        </h3>
+        <div style={{ display:'flex', gap:12, marginBottom:20 }}>
+          <img src={item.product_thumbnail} alt={item.product_name} style={{ width:60, height:60, objectFit:'cover', borderRadius:8 }} />
+          <div style={{ fontWeight:600, fontSize:'0.9rem' }}>{item.product_name}</div>
+        </div>
+
+        <div style={{ display:'flex', justifyContent:'center', gap:8, marginBottom:20 }}>
+          {[1,2,3,4,5].map(star => (
+            <Star key={star} size={32} cursor="pointer"
+              fill={star <= rating ? '#F59E0B' : 'transparent'}
+              color={star <= rating ? '#F59E0B' : 'var(--border)'}
+              onClick={() => setRating(star)}
+            />
+          ))}
+        </div>
+
+        <textarea className="form-control" rows={4} placeholder="Nhận xét của bạn về sản phẩm này..."
+          value={comment} onChange={e=>setComment(e.target.value)} style={{ marginBottom:20 }} />
+
+        <button onClick={submit} className="btn btn-primary btn-full" disabled={loading}>
+          {loading ? 'Đang gửi...' : 'Gửi đánh giá'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── ORDER CARD MỞ RỘNG ─────────────────────────────────────────
+function OrderCard({ o, onOrderUpdated, existingReviews }) {
+  const [expanded, setExpanded] = useState(false);
+  const [details, setDetails] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [reviewModalItem, setReviewModalItem] = useState(null);
+
+  const toggleExpand = async () => {
+    if (expanded) {
+      setExpanded(false);
+    } else {
+      setExpanded(true);
+      if (!details) {
+        setLoading(true);
+        try {
+          const res = await orderApi.getById(o.id);
+          setDetails(res.data.data);
+        } catch (e) {} finally { setLoading(false); }
+      }
+    }
+  };
+
+  const st = STATUS_MAP[o.status || o.trang_thai] || { label: o.status || o.trang_thai, color: '#999' };
+
+  return (
+    <div style={{ background:'var(--surface-2)', border:'1px solid var(--border)', borderRadius:10, marginBottom:12, overflow:'hidden' }}>
+      <div onClick={toggleExpand} style={{ padding:'14px 18px', cursor:'pointer', display:'flex', flexDirection:'column', gap:8 }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+          <span style={{ fontWeight:700, fontSize:'0.88rem' }}>#{o.order_code}</span>
+          <span style={{ fontSize:'0.78rem', fontWeight:700, color:st.color, background:st.color+'18', padding:'3px 10px', borderRadius:20 }}>{st.label}</span>
+        </div>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', fontSize:'0.8rem', color:'var(--text-muted)' }}>
+          <span>{fmtDate(o.created_at)}</span>
+          <span style={{ display:'flex', alignItems:'center', gap:4 }}>
+            {o.item_count||1} sản phẩm
+            {expanded ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
+          </span>
+        </div>
+        <div style={{ display:'flex', justifyContent:'flex-end' }}>
+          <span style={{ fontWeight:700, color:'var(--accent)' }}>{fmtCur(o.total_amount)}</span>
+        </div>
+      </div>
+
+      {expanded && (
+        <div style={{ padding:'0 18px 18px 18px', borderTop:'1px solid var(--border)' }}>
+          {loading ? <div style={{ padding:10, textAlign:'center', color:'var(--text-muted)' }}>Đang tải chi tiết...</div> : details?.items ? (
+            <div style={{ marginTop:14, display:'flex', flexDirection:'column', gap:12 }}>
+              {details.items.map(item => {
+                const reviewed = existingReviews?.find(r => r.order_item_id === item.id);
+                return (
+                  <div key={item.id} style={{ display:'flex', gap:12, alignItems:'flex-start' }}>
+                    <img src={item.product_thumbnail} alt={item.product_name} style={{ width:50, height:50, objectFit:'cover', borderRadius:6, border:'1px solid var(--border)' }} />
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontSize:'0.85rem', fontWeight:600 }}>{item.product_name}</div>
+                      <div style={{ fontSize:'0.75rem', color:'var(--text-muted)' }}>x{item.quantity} — {fmtCur(item.unit_price)}</div>
+                    </div>
+                    {o.status === 'da_giao' && (
+                      <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:4 }}>
+                        {reviewed ? (
+                          <div style={{ display:'flex', alignItems:'center', gap:2, color:'#F59E0B', fontSize:'0.8rem', fontWeight:700 }}>
+                            {reviewed.rating} <Star size={12} fill="#F59E0B"/>
+                          </div>
+                        ) : (
+                          <button onClick={(e)=>{ e.stopPropagation(); setReviewModalItem(item); }} className="btn btn-sm" style={{ padding:'4px 10px', fontSize:'0.75rem', background:'var(--surface-3)', border:'1px solid var(--border)', color:'var(--text-primary)' }}>
+                            Đánh giá
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : <div style={{ padding:10, textAlign:'center', color:'var(--text-muted)' }}>Lỗi tải chi tiết</div>}
+        </div>
+      )}
+
+      {reviewModalItem && (
+        <ReviewModal
+          item={reviewModalItem}
+          onClose={()=>setReviewModalItem(null)}
+          onReviewed={onOrderUpdated}
+        />
+      )}
+    </div>
+  );
+}
+
 // ─── PANEL: LỊCH SỬ ĐƠN HÀNG ───────────────────────────────────
 function OrdersPanel() {
   const [orders, setOrders] = useState([]);
+  const [existingReviews, setExistingReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusTab, setStatusTab] = useState('all');
   const [search, setSearch] = useState('');
 
-  useEffect(() => {
-    orderApi.getAll().then(r => setOrders(r.data.data || [])).catch(()=>{}).finally(()=>setLoading(false));
-  }, []);
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [ordRes, revRes] = await Promise.all([
+        orderApi.getAll(),
+        reviewApi.getMine().catch(()=>({data:{data:[]}}))
+      ]);
+      setOrders(ordRes.data.data || []);
+      setExistingReviews(revRes.data.data || []);
+    } catch (e) {} finally { setLoading(false); }
+  };
+
+  useEffect(() => { loadData(); }, []);
 
   const statuses = ['all', 'cho_xac_nhan', 'da_xac_nhan', 'dang_giao', 'da_giao', 'da_huy'];
   const filtered = orders.filter(o => {
-    const matchStatus = statusTab === 'all' || o.trang_thai === statusTab;
-    const matchSearch = !search.trim() ||
-      o.ma_code?.toLowerCase().includes(search.toLowerCase()) ||
-      (o.items||[]).some(i => i.name?.toLowerCase().includes(search.toLowerCase()));
+    const matchStatus = statusTab === 'all' || o.status === statusTab;
+    const matchSearch = !search.trim() || o.order_code?.toLowerCase().includes(search.toLowerCase());
     return matchStatus && matchSearch;
   });
 
@@ -165,22 +320,112 @@ function OrdersPanel() {
             <Package size={48} strokeWidth={1.2} style={{ marginBottom:14, opacity:0.4 }} />
             <div>Bạn chưa có đơn hàng nào</div>
           </div>
-        ) : filtered.map(o => {
-          const st = STATUS_MAP[o.trang_thai] || { label: o.trang_thai, color: '#999' };
-          return (
-            <div key={o.id} style={{ background:'var(--surface-2)', border:'1px solid var(--border)', borderRadius:10, padding:'14px 18px', marginBottom:12 }}>
-              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
-                <span style={{ fontWeight:700, fontSize:'0.88rem' }}>#{o.ma_code}</span>
-                <span style={{ fontSize:'0.78rem', fontWeight:700, color:st.color, background:st.color+'18', padding:'3px 10px', borderRadius:20 }}>{st.label}</span>
-              </div>
-              <div style={{ fontSize:'0.8rem', color:'var(--text-muted)', marginBottom:6 }}>{fmtDate(o.ngay_tao)}</div>
-              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                <span style={{ fontSize:'0.82rem', color:'var(--text-secondary)' }}>{o.item_count||1} sản phẩm</span>
-                <span style={{ fontWeight:700, color:'var(--accent)' }}>{fmtCur(o.tong_tien)}</span>
-              </div>
-            </div>
-          );
-        })}
+        ) : filtered.map(o => (
+          <OrderCard key={o.id} o={o} existingReviews={existingReviews} onOrderUpdated={loadData} />
+        ))}
+    </div>
+  );
+}
+
+// ─── PANEL: VOUCHER CỦA TÔI ─────────────────────────────────────
+const TYPE_COLOR = { percent: '#3B82F6', fixed_amount: '#10B981', freeship: '#F59E0B' };
+const TYPE_LABEL = { percent: '% Giảm', fixed_amount: 'Giảm tiền', freeship: '🚚 Miễn ship' };
+
+function VoucherCard({ v }) {
+  const expired = v.expires_at && new Date(v.expires_at) < new Date();
+  const accent  = TYPE_COLOR[v.discount_type] || '#3B82F6';
+
+  const getDiscountLabel = () => {
+    if (v.discount_type === 'percent')      return `Giảm ${v.discount_value}%${v.max_discount ? ` (tối đa ${fmtCur(v.max_discount)})` : ''}`;
+    if (v.discount_type === 'fixed_amount') return `Giảm ${fmtCur(v.discount_value)}`;
+    if (v.discount_type === 'freeship')     return 'Miễn phí vận chuyển';
+    return '';
+  };
+
+  return (
+    <div style={{
+      display: 'flex', borderRadius: 12, overflow: 'hidden',
+      border: `1.5px solid ${v.used || expired ? 'var(--border)' : accent + '44'}`,
+      background: 'var(--surface-2)', opacity: v.used || expired ? 0.6 : 1, transition: 'box-shadow 0.2s',
+      marginBottom: 12
+    }}
+      onMouseEnter={e => { if (!v.used && !expired) e.currentTarget.style.boxShadow = `0 4px 20px ${accent}28`; }}
+      onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
+    >
+      <div style={{
+        width: 72, flexShrink: 0, background: `linear-gradient(160deg, ${accent}, ${accent}BB)`,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6,
+        clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 0 100%)',
+      }}>
+        <Ticket size={22} color="rgba(255,255,255,0.9)" />
+        <span style={{ fontSize: '0.58rem', color: 'rgba(255,255,255,0.85)', fontWeight: 800, textAlign: 'center' }}>
+          {TYPE_LABEL[v.discount_type]}
+        </span>
+      </div>
+      <div style={{ width: 1, borderLeft: `2px dashed ${accent}44`, margin: '10px 0', flexShrink: 0 }} />
+      <div style={{ flex: 1, padding: '14px 16px' }}>
+        <div style={{ fontSize: '1rem', fontWeight: 800, color: accent, marginBottom: 3 }}>{getDiscountLabel()}</div>
+        <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: 2 }}>
+          Mã: <strong style={{ color: 'var(--text-primary)', letterSpacing: 1 }}>{v.code}</strong>
+        </div>
+        {v.min_order > 0 && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: 2 }}>Đơn tối thiểu: {fmtCur(v.min_order)}</div>}
+        <div style={{ fontSize: '0.72rem', color: expired ? 'var(--red)' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
+          <Clock size={11} /> HSD: {v.expires_at ? new Date(v.expires_at).toLocaleDateString('vi-VN') : 'Không giới hạn'}
+        </div>
+      </div>
+      <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'space-between', gap: 8, flexShrink: 0 }}>
+        {v.used ? <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}><XCircle size={13} /> Đã dùng</span>
+        : expired ? <span style={{ fontSize: '0.72rem', color: 'var(--red)', display: 'flex', alignItems: 'center', gap: 4 }}><XCircle size={13} /> Hết hạn</span>
+        : <span style={{ fontSize: '0.72rem', color: '#10b981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}><CheckCircle2 size={13} /> Có thể dùng</span>}
+        {!v.used && !expired && (
+          <button onClick={() => { navigator.clipboard.writeText(v.code); toast.success(`Đã chép mã ${v.code}!`); }}
+            style={{ display: 'flex', alignItems: 'center', gap: 5, background: accent, color: '#fff', border: 'none', padding: '5px 12px', borderRadius: 20, fontSize: '0.76rem', fontWeight: 700, cursor: 'pointer', transition: 'opacity 0.15s' }}
+            onMouseEnter={e => e.currentTarget.style.opacity = '0.85'} onMouseLeave={e => e.currentTarget.style.opacity = '1'}>
+            <Copy size={12} /> Sao chép
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function VouchersPanel() {
+  const [vouchers, setVouchers] = useState([]);
+  const [loading,  setLoading]  = useState(true);
+  const [tab,      setTab]      = useState('available'); // 'available' | 'used'
+
+  useEffect(() => {
+    voucherApi.getMine()
+      .then(r => setVouchers(r.data.data || []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const available = vouchers.filter(v => !v.used && (!v.expires_at || new Date(v.expires_at) >= new Date()));
+  const used      = vouchers.filter(v => v.used || (v.expires_at && new Date(v.expires_at) < new Date()));
+  const current = tab === 'available' ? available : used;
+
+  return (
+    <div>
+      <h2 style={hdr}>Voucher của tôi</h2>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 24, borderBottom: '1.5px solid var(--border)', paddingBottom: 0 }}>
+        {[
+          { key: 'available', label: `Có thể dùng (${available.length})` },
+          { key: 'used',      label: `Đã dùng / Hết hạn (${used.length})` },
+        ].map(t => (
+          <button key={t.key} onClick={() => setTab(t.key)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '10px 16px', fontSize: '0.88rem', fontWeight: tab === t.key ? 700 : 500, color: tab === t.key ? 'var(--accent)' : 'var(--text-muted)', borderBottom: tab === t.key ? '2px solid var(--accent)' : '2px solid transparent', marginBottom: -1.5, transition: 'all 0.15s' }}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+      {loading ? <div className="spinner-wrap"><div className="spinner" /></div>
+      : current.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--text-muted)' }}>
+          <Ticket size={48} strokeWidth={1.2} style={{ marginBottom: 14, opacity: 0.4 }} />
+          <div>Chưa có voucher nào</div>
+        </div>
+      ) : current.map(v => <VoucherCard key={v.id} v={v} />)}
     </div>
   );
 }
@@ -524,13 +769,50 @@ function PasswordPanel() {
 
 // ─── PANEL: ĐÁNH GIÁ ────────────────────────────────────────────
 function ReviewsPanel() {
+  const [reviews, setReviews] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    reviewApi.getMine()
+      .then(r => setReviews(r.data.data || []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
   return (
     <div>
       <h2 style={hdr}>Đánh giá đơn hàng</h2>
-      <div style={{ textAlign:'center', padding:'48px 0', color:'var(--text-muted)' }}>
-        <Star size={48} strokeWidth={1.2} style={{ opacity:0.3, marginBottom:12 }} />
-        <div>Tính năng đang phát triển</div>
-      </div>
+      {loading ? <div className="spinner-wrap"><div className="spinner"/></div>
+      : reviews.length === 0 ? (
+        <div style={{ textAlign:'center', padding:'48px 0', color:'var(--text-muted)' }}>
+          <Star size={48} strokeWidth={1.2} style={{ opacity:0.3, marginBottom:12 }} />
+          <div>Bạn chưa có đánh giá nào</div>
+        </div>
+      ) : (
+        <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+          {reviews.map((r, i) => (
+            <div key={i} style={{ background:'var(--surface-2)', border:'1px solid var(--border)', borderRadius:10, padding:'16px 20px' }}>
+              <div style={{ display:'flex', gap:12, marginBottom:12, borderBottom:'1px solid var(--border)', paddingBottom:12 }}>
+                <img src={r.product_thumbnail} alt={r.product_name} style={{ width:48, height:48, objectFit:'cover', borderRadius:6, border:'1px solid var(--border)' }} />
+                <div>
+                  <div style={{ fontWeight:600, fontSize:'0.9rem', marginBottom:4 }}>{r.product_name}</div>
+                  <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                    <div style={{ display:'flex', gap:2 }}>
+                      {[1,2,3,4,5].map(star => (
+                        <Star key={star} size={13} fill={star <= r.rating ? '#F59E0B' : 'transparent'} color={star <= r.rating ? '#F59E0B' : 'var(--border)'} />
+                      ))}
+                    </div>
+                    <span style={{ fontSize:'0.75rem', color:'var(--text-muted)' }}>{fmtDate(r.created_at)}</span>
+                  </div>
+                </div>
+              </div>
+              <div style={{ fontSize:'0.9rem', color:'var(--text-primary)', lineHeight:1.6 }}>
+                {r.comment || <span style={{ color:'var(--text-muted)', fontStyle:'italic' }}>Không có nhận xét</span>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -544,7 +826,14 @@ const labelStyle = { fontSize:'0.85rem', fontWeight:600, color:'var(--text-muted
 export default function ProfilePage() {
   const { user, logout, updateUser } = useAuth();
   const navigate = useNavigate();
-  const [tab, setTab] = useState('info');
+  const location = useLocation();
+
+  const searchParams = new URLSearchParams(location.search);
+  const tabParam = searchParams.get('tab') || 'info';
+
+  const setTab = (newTab) => {
+    navigate(`/profile?tab=${newTab}`);
+  };
 
   useEffect(() => { document.title = 'Hồ sơ của tôi – TechStore'; }, []);
 
@@ -553,6 +842,7 @@ export default function ProfilePage() {
   const panels = {
     info:     <InfoPanel user={user} updateUser={updateUser} />,
     orders:   <OrdersPanel />,
+    vouchers: <VouchersPanel />,
     address:  <AddressPanel />,
     reviews:  <ReviewsPanel />,
     password: <PasswordPanel />,
@@ -562,9 +852,9 @@ export default function ProfilePage() {
     <div className="section">
       <div className="container">
         <div style={{ display:'grid', gridTemplateColumns:'260px 1fr', gap:24, alignItems:'start', maxWidth:960 }}>
-          <Sidebar user={user} tab={tab} setTab={setTab} onLogout={handleLogout} />
+          <Sidebar user={user} tab={tabParam} setTab={setTab} onLogout={handleLogout} />
           <div style={{ background:'var(--surface-2)', border:'1px solid var(--border)', borderRadius:12, padding:'28px 32px' }}>
-            {panels[tab]}
+            {panels[tabParam] || panels.info}
           </div>
         </div>
       </div>

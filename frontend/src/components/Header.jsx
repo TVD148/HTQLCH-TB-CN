@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, NavLink } from 'react-router-dom';
 import { ShoppingCart, Heart, Bell, Search, Zap, User, LogOut, Package, Shield,
-         ChevronDown, Sun, Moon, Menu, X, LayoutGrid, Ticket } from 'lucide-react';
+         ChevronDown, Sun, Moon, Menu, X, LayoutGrid, Ticket, Star } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { useTheme } from '../context/ThemeContext';
@@ -15,6 +15,8 @@ export default function Header() {
 
   const [search, setSearch]       = useState('');
   const [notifCount, setNotifCount] = useState(0);
+  const [notifications, setNotifications] = useState([]);
+  const [showNotifMenu, setShowNotifMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showCatMenu, setShowCatMenu]   = useState(false);
   const [categories, setCategories]      = useState([]);
@@ -23,6 +25,7 @@ export default function Header() {
   const [scrolled, setScrolled]   = useState(false);
   const menuRef    = useRef(null);
   const catMenuRef = useRef(null);
+  const notifMenuRef = useRef(null);
   const initialMount = useRef(true);
 
   // Scroll shadow
@@ -39,15 +42,39 @@ export default function Header() {
   }, []);
 
   // Notifications
-  useEffect(() => {
-    if (user) notificationApi.getAll().then(r => setNotifCount(r.data.unread || 0)).catch(() => {});
-  }, [user]);
+  const loadNotifs = () => {
+    if (user) {
+      notificationApi.getAll().then(r => {
+        setNotifications(r.data.data || []);
+        setNotifCount(r.data.unread || 0);
+      }).catch(() => {});
+    }
+  };
+  useEffect(() => { loadNotifs(); }, [user]);
+
+  const handleNotifClick = async (n) => {
+    if (!n.is_read) {
+      await notificationApi.markRead(n.id);
+      loadNotifs();
+    }
+    setShowNotifMenu(false);
+    if (n.type === 'order') navigate('/profile?tab=orders');
+    else if (n.type === 'voucher') navigate('/profile?tab=vouchers');
+    else if (n.type === 'warranty') navigate('/warranty');
+    else navigate('/profile');
+  };
+
+  const handleMarkAllRead = async () => {
+    await notificationApi.markAllRead();
+    loadNotifs();
+  };
 
   // Close menus on outside click
   useEffect(() => {
     const handler = (e) => {
       if (menuRef.current && !menuRef.current.contains(e.target)) setShowUserMenu(false);
       if (catMenuRef.current && !catMenuRef.current.contains(e.target)) setShowCatMenu(false);
+      if (notifMenuRef.current && !notifMenuRef.current.contains(e.target)) setShowNotifMenu(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
@@ -133,10 +160,38 @@ export default function Header() {
 
             {/* Notifications */}
             {user && (
-              <Link to="/profile" className="header-v2__icon-btn" title="Thông báo">
-                <Bell size={17} />
-                {notifCount > 0 && <span className="header-v2__badge">{notifCount}</span>}
-              </Link>
+              <div style={{ position: 'relative' }} ref={notifMenuRef}>
+                <button className="header-v2__icon-btn" title="Thông báo" onClick={() => setShowNotifMenu(v => !v)}>
+                  <Bell size={17} />
+                  {notifCount > 0 && <span className="header-v2__badge">{notifCount}</span>}
+                </button>
+                {showNotifMenu && (
+                  <div className="header-v2__dropdown" style={{ width: 340, right: -10, padding: 0 }}>
+                    <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>Thông báo</span>
+                      {notifCount > 0 && (
+                        <button onClick={handleMarkAllRead} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}>Đánh dấu đã đọc</button>
+                      )}
+                    </div>
+                    <div style={{ maxHeight: 360, overflowY: 'auto' }}>
+                      {notifications.length === 0 ? (
+                        <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Không có thông báo nào</div>
+                      ) : (
+                        notifications.map(n => (
+                          <div key={n.id} onClick={() => handleNotifClick(n)} style={{ padding: '12px 18px', borderBottom: '1px solid var(--border)', cursor: 'pointer', background: n.is_read ? 'none' : 'var(--accent-light)', transition: 'background 0.2s' }}>
+                            <div style={{ fontWeight: 600, fontSize: '0.85rem', marginBottom: 4, color: 'var(--text-primary)' }}>
+                              {n.title}
+                              {!n.is_read && <span style={{ display:'inline-block', width:8, height:8, background:'var(--red)', borderRadius:'50%', marginLeft:6 }}></span>}
+                            </div>
+                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.4, marginBottom: 6 }}>{n.content}</div>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{new Date(n.created_at).toLocaleString('vi-VN')}</div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
 
             {/* Cart */}
@@ -166,9 +221,10 @@ export default function Header() {
                       )}
                     </div>
                     {[
-                      { to: '/profile',     icon: <User size={14} />,    label: 'Hồ sơ của tôi' },
-                      { to: '/orders',      icon: <Package size={14} />,  label: 'Đơn hàng' },
-                      { to: '/my-vouchers', icon: <Ticket size={14} />,   label: 'Voucher của tôi' },
+                      { to: '/profile',                icon: <User size={14} />,    label: 'Hồ sơ của tôi' },
+                      { to: '/profile?tab=orders',    icon: <Package size={14} />,  label: 'Lịch sử đơn hàng' },
+                      { to: '/profile?tab=reviews',   icon: <Star size={14} />,     label: 'Đánh giá đơn hàng' },
+                      { to: '/profile?tab=vouchers',  icon: <Ticket size={14} />,   label: 'Voucher của tôi' },
                       ...(isAdmin ? [{ to: '/admin', icon: null, label: '⚙️ Quản trị' }] : []),
                     ].map(item => (
                       <Link key={item.to} to={item.to} className="header-v2__dropdown-item"

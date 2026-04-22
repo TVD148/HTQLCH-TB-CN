@@ -25,9 +25,9 @@ router.post('/', async (req, res, next) => {
     }
 
     await db.query(
-      `INSERT INTO danh_gia (ma_nguoi_dung, ma_san_pham, ma_chi_tiet_dh, so_sao, binh_luan)
-       VALUES (?, ?, ?, ?, ?)`,
-      [req.user.id, product_id, order_item_id || null, rating, comment || null]
+      `INSERT INTO danh_gia (ma_san_pham, ma_nguoi_dung, ma_chi_tiet_dh, so_sao, binh_luan, da_duyet)
+       VALUES (?, ?, ?, ?, ?, 1)`,
+      [product_id, req.user.id, order_item_id || null, rating, comment || null]
     );
 
     // Cập nhật điểm đánh giá trung bình
@@ -45,6 +45,23 @@ router.post('/', async (req, res, next) => {
     }
     next(err);
   }
+});
+
+// GET /api/reviews/mine — Lấy danh sách đánh giá của người dùng
+router.get('/mine', async (req, res, next) => {
+  try {
+    const [reviews] = await db.query(
+      `SELECT dg.ma_chi_tiet_dh AS order_item_id, dg.ma_san_pham AS product_id,
+              dg.so_sao AS rating, dg.binh_luan AS comment, dg.ngay_tao AS created_at,
+              sp.ten_san_pham AS product_name, sp.anh_dai_dien AS product_thumbnail
+       FROM danh_gia dg
+       JOIN san_pham sp ON sp.ma_san_pham = dg.ma_san_pham
+       WHERE dg.ma_nguoi_dung = ?
+       ORDER BY dg.ngay_tao DESC`,
+      [req.user.id]
+    );
+    res.json({ success: true, data: reviews });
+  } catch (err) { next(err); }
 });
 
 module.exports = router;
