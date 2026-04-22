@@ -59,14 +59,23 @@ export default function Header() {
 
   const handleNotifClick = async (n) => {
     if (!n.is_read) {
-      await notificationApi.markRead(n.id);
+      await notificationApi.markRead(n.id).catch(() => {});
       loadNotifs();
     }
     setShowNotifMenu(false);
-    if (n.type === 'order') navigate('/profile?tab=orders');
-    else if (n.type === 'voucher') navigate('/profile?tab=vouchers');
-    else if (n.type === 'warranty') navigate('/warranty');
-    else navigate('/profile');
+
+    if (n.type === 'don_hang' || n.type === 'order') {
+      // ref_id là mã đơn hàng (VD: DH-22042026-001)
+      if (n.ref_id) navigate(`/orders/${n.ref_id}`);
+      else navigate('/profile?tab=orders');
+    } else if (n.type === 'bao_hanh' || n.type === 'warranty') {
+      // ref_id là ma_bao_hanh (số), điều hướng đến trang bảo hành
+      navigate('/warranty');
+    } else if (n.type === 'voucher' || n.type === 'su_kien') {
+      navigate('/profile?tab=vouchers');
+    } else {
+      navigate('/profile');
+    }
   };
 
   const handleMarkAllRead = async () => {

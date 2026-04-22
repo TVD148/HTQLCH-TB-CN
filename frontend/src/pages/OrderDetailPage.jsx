@@ -6,17 +6,30 @@ import { useCart } from '../context/CartContext';
 
 const fmt = (p) => new Intl.NumberFormat('vi-VN',{style:'currency',currency:'VND'}).format(p||0);
 
+// Status labels khớp với giá trị DB thực tế
 const STATUS_MAP = {
-  pending:   { label:'Chờ xác nhận', icon:<Clock size={18}/>,        cls:'badge-pending',   color:'var(--amber)' },
-  confirmed: { label:'Đã xác nhận',  icon:<CheckCircle size={18}/>,  cls:'badge-confirmed', color:'var(--accent)' },
-  shipping:  { label:'Đang giao',    icon:<Truck size={18}/>,        cls:'badge-shipping',  color:'#8B5CF6' },
-  delivered: { label:'Đã giao',      icon:<CheckCircle size={18}/>,  cls:'badge-delivered', color:'var(--emerald)' },
-  cancelled: { label:'Đã hủy',       icon:<XCircle size={18}/>,      cls:'badge-cancelled', color:'var(--red)' },
+  cho_xac_nhan: { label:'Chờ xác nhận', icon:<Clock size={18}/>,        cls:'badge-pending',   color:'var(--amber)' },
+  da_xac_nhan:  { label:'Đã xác nhận',  icon:<CheckCircle size={18}/>,  cls:'badge-confirmed', color:'var(--accent)' },
+  dang_giao:    { label:'Đang giao',    icon:<Truck size={18}/>,        cls:'badge-shipping',  color:'#8B5CF6' },
+  da_giao:      { label:'Đã giao',      icon:<CheckCircle size={18}/>,  cls:'badge-delivered', color:'var(--emerald)' },
+  da_huy:       { label:'Đã hủy',       icon:<XCircle size={18}/>,      cls:'badge-cancelled', color:'var(--red)' },
+  hoan_tien:    { label:'Hoàn tiền',    icon:<XCircle size={18}/>,      cls:'badge-cancelled', color:'#f59e0b' },
 };
 
-const PAYMENT_LABEL = { cod:'Thanh toán khi nhận hàng (COD)', bank_transfer:'Chuyển khoản ngân hàng', momo:'Ví MoMo', loyalty_points:'Điểm tích lũy' };
+const PAYMENT_MAP = {
+  chua_tt:       { label: '⏳ Chưa thanh toán', color: 'var(--amber)' },
+  da_tt:         { label: '✅ Đã thanh toán',   color: 'var(--emerald)' },
+  da_hoan_tien:  { label: '↩ Đã hoàn tiền',   color: '#8b5cf6' },
+};
 
-const STEPS = ['pending','confirmed','shipping','delivered'];
+const PAYMENT_LABEL = {
+  cod:            'Thanh toán khi nhận hàng (COD)',
+  bank_transfer:  'Chuyển khoản ngân hàng',
+  momo:           'Ví MoMo',
+  loyalty_points: 'Điểm tích lũy',
+};
+
+const STEPS = ['cho_xac_nhan','da_xac_nhan','dang_giao','da_giao'];
 
 export default function OrderDetailPage() {
   const { id } = useParams();
@@ -57,9 +70,9 @@ export default function OrderDetailPage() {
   if (loading) return <div className="spinner-wrap"><div className="spinner"/></div>;
   if (!order)  return <div className="section"><div className="container"><p>Không tìm thấy đơn hàng.</p></div></div>;
 
-  const s = STATUS_MAP[order.status] || STATUS_MAP.pending;
+  const s = STATUS_MAP[order.status] || STATUS_MAP.cho_xac_nhan;
   const stepIdx = STEPS.indexOf(order.status);
-  const isCancelled = order.status === 'cancelled';
+  const isCancelled = order.status === 'da_huy' || order.status === 'hoan_tien';
 
   return (
     <div className="section"><div className="container">
@@ -175,8 +188,8 @@ export default function OrderDetailPage() {
             </div>
             <div style={{display:'flex',justifyContent:'space-between',fontSize:'0.85rem'}}>
               <span style={{color:'var(--text-muted)'}}>Trạng thái thanh toán</span>
-              <span style={{fontWeight:600,color:order.payment_status==='paid'?'var(--emerald)':'var(--amber)'}}>
-                {order.payment_status==='paid'?'✅ Đã thanh toán':'⏳ Chưa thanh toán'}
+              <span style={{fontWeight:600,color:(PAYMENT_MAP[order.payment_status]||PAYMENT_MAP.chua_tt).color}}>
+                {(PAYMENT_MAP[order.payment_status]||PAYMENT_MAP.chua_tt).label}
               </span>
             </div>
           </div>
@@ -187,13 +200,13 @@ export default function OrderDetailPage() {
             </div>
           )}
 
-          {order.status === 'pending' && (
+          {order.status === 'cho_xac_nhan' && (
             <button className="btn btn-danger btn-full" style={{marginTop:16}} onClick={handleCancel} disabled={cancelling}>
               {cancelling ? 'Đang hủy...' : '❌ Hủy đơn hàng'}
             </button>
           )}
 
-          {order.status === 'delivered' && (
+          {order.status === 'da_giao' && (
             <button
               className="btn btn-primary btn-full"
               style={{marginTop:16,justifyContent:'center'}}

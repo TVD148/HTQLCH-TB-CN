@@ -6,11 +6,12 @@ import { orderApi } from '../api';
 const fmt = (p) => new Intl.NumberFormat('vi-VN',{style:'currency',currency:'VND'}).format(p);
 
 const STATUS_MAP = {
-  pending: { label: 'Chờ xác nhận', cls: 'badge-pending' },
-  confirmed: { label: 'Đã xác nhận', cls: 'badge-confirmed' },
-  shipping:  { label: 'Đang giao', cls: 'badge-shipping' },
-  delivered: { label: 'Đã nhận', cls: 'badge-delivered' },
-  cancelled: { label: 'Đã hủy', cls: 'badge-cancelled' },
+  cho_xac_nhan: { label: 'Chờ xác nhận', cls: 'badge-pending' },
+  da_xac_nhan:  { label: 'Đã xác nhận', cls: 'badge-confirmed' },
+  dang_giao:    { label: 'Đang giao',    cls: 'badge-shipping' },
+  da_giao:      { label: 'Đã giao',      cls: 'badge-delivered' },
+  da_huy:       { label: 'Đã hủy',       cls: 'badge-cancelled' },
+  hoan_tien:    { label: 'Hoàn tiền',    cls: 'badge-cancelled' },
 };
 
 export default function OrdersPage() {
@@ -36,7 +37,7 @@ export default function OrdersPage() {
       ) : (
         <div style={{display:'flex',flexDirection:'column',gap:12}}>
           {orders.map(o=>(
-            <Link key={o.id} to={`/orders/${o.id}`} style={{display:'flex',alignItems:'center',gap:16,padding:16,background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:'var(--radius-md)',transition:'border-color .2s'}}
+            <Link key={o.id} to={`/orders/${o.order_code}`} style={{display:'flex',alignItems:'center',gap:16,padding:16,background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:'var(--radius-md)',transition:'border-color .2s'}}
               onMouseEnter={e=>e.currentTarget.style.borderColor='var(--accent)'}
               onMouseLeave={e=>e.currentTarget.style.borderColor='var(--border)'}>
               <Package size={20} style={{color:'var(--accent)',flexShrink:0}}/>

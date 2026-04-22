@@ -11,13 +11,14 @@ import toast from 'react-hot-toast';
 
 /* ── Trạng thái ─────────────────────────────────────────── */
 const STATUS_MAP = {
-  cho_xu_ly:   { label: 'Chờ xử lý',     color: '#f59e0b', bg: 'rgba(245,158,11,0.12)',  icon: '⏳' },
-  dang_xu_ly:  { label: 'Đang xử lý',    color: '#3b82f6', bg: 'rgba(59,130,246,0.12)',  icon: '🔧' },
-  hoan_thanh:  { label: 'Hoàn thành',    color: '#10b981', bg: 'rgba(16,185,129,0.12)',  icon: '✅' },
-  tu_choi:     { label: 'Từ chối',        color: '#ef4444', bg: 'rgba(239,68,68,0.12)',   icon: '❌' },
+  cho_xu_ly:    { label: 'Chờ xử lý',     color: '#f59e0b', bg: 'rgba(245,158,11,0.12)',  icon: '⏳' },
+  da_tiep_nhan: { label: 'Đã tiếp nhận',  color: '#3b82f6', bg: 'rgba(59,130,246,0.12)',  icon: '📬' },
+  dang_xu_ly:   { label: 'Đang xử lý',    color: '#8b5cf6', bg: 'rgba(139,92,246,0.12)',  icon: '🔧' },
+  hoan_thanh:   { label: 'Hoàn thành',    color: '#10b981', bg: 'rgba(16,185,129,0.12)',  icon: '✅' },
+  tu_choi:      { label: 'Từ chối',        color: '#ef4444', bg: 'rgba(239,68,68,0.12)',   icon: '❌' },
   // legacy keys
   pending:     { label: 'Chờ xử lý',     color: '#f59e0b', bg: 'rgba(245,158,11,0.12)',  icon: '⏳' },
-  processing:  { label: 'Đang xử lý',    color: '#3b82f6', bg: 'rgba(59,130,246,0.12)',  icon: '🔧' },
+  processing:  { label: 'Đang xử lý',    color: '#8b5cf6', bg: 'rgba(139,92,246,0.12)',  icon: '🔧' },
   resolved:    { label: 'Hoàn thành',    color: '#10b981', bg: 'rgba(16,185,129,0.12)',  icon: '✅' },
   rejected:    { label: 'Từ chối',        color: '#ef4444', bg: 'rgba(239,68,68,0.12)',   icon: '❌' },
 };
