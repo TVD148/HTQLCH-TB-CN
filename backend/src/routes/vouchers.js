@@ -9,15 +9,16 @@ router.get('/public', async (req, res, next) => {
     const [rows] = await db.query(
       `SELECT
           ma_voucher AS id,
-          ma_code AS code,
           ten_voucher AS name,
           loai_giam AS discount_type,
+          loai_voucher AS voucher_type,
           gia_tri_giam AS discount_value,
           giam_toi_da AS max_discount,
           don_hang_toi_thieu AS min_order,
           ngay_het_han AS expires_at
        FROM ma_giam_gia
        WHERE trang_thai = 1
+         AND loai_voucher != 'promo_code'
          AND ngay_bat_dau <= NOW()
          AND ngay_het_han >= NOW()
          AND da_su_dung < so_lan_toi_da
@@ -289,10 +290,16 @@ router.post('/claim/:id', verifyToken, async (req, res, next) => {
 });
 
 // ─── GET /api/vouchers/mine ───────────────────────────────────
-// Lấy danh sách voucher cá nhân của user (đã nhận, chưa dùng + đã dùng)
+// Ch? voucher cá nhân: đã nhận + chưa dùng — dùng cho trang thanh toán
 router.get('/mine', verifyToken, async (req, res, next) => {
   try {
     const userId = req.user.id;
+    const { type, cart_total = 0 } = req.query; // type = 'product' | 'shipping' | 'all'
+    const cartNum = parseFloat(cart_total) || 0;
+
+    let typeFilter = "AND v.loai_voucher != 'promo_code'";
+    if (type === 'product')  typeFilter = "AND v.loai_voucher = 'product'";
+    if (type === 'shipping') typeFilter = "AND v.loai_voucher = 'shipping'";
 
     const [rows] = await db.query(
       `SELECT
@@ -301,6 +308,7 @@ router.get('/mine', verifyToken, async (req, res, next) => {
           v.ten_voucher   AS name,
           v.mo_ta         AS description,
           v.loai_giam     AS discount_type,
+          v.loai_voucher  AS voucher_type,
           v.gia_tri_giam  AS discount_value,
           v.giam_toi_da   AS max_discount,
           v.don_hang_toi_thieu AS min_order,
@@ -310,11 +318,73 @@ router.get('/mine', verifyToken, async (req, res, next) => {
        FROM voucher_nguoi_dung vnd
        JOIN ma_giam_gia v ON v.ma_voucher = vnd.ma_voucher
        WHERE vnd.ma_nguoi_dung = ?
+         AND v.trang_thai = 1
+         AND v.ngay_het_han >= NOW()
+         ${typeFilter}
        ORDER BY vnd.da_su_dung ASC, v.ngay_het_han ASC`,
       [userId]
     );
 
-    res.json({ success: true, data: rows });
+    const vouchers = rows.map(v => {
+      let discountAmount = 0;
+      if (!v.used && cartNum >= parseFloat(v.min_order || 0)) {
+        if (v.discount_type === 'percent') {
+          discountAmount = (cartNum * parseFloat(v.discount_value)) / 100;
+          if (v.max_discount) discountAmount = Math.min(discountAmount, parseFloat(v.max_discount));
+        } else {
+          discountAmount = parseFloat(v.discount_value);
+        }
+      }
+      return { ...v, discount_value: parseFloat(v.discount_value), min_order: parseFloat(v.min_order || 0), discount_amount: discountAmount, eligible: cartNum >= parseFloat(v.min_order || 0) && !v.used };
+    });
+
+    res.json({ success: true, data: vouchers });
+  } catch (err) { next(err); }
+});
+
+// ─── POST /api/vouchers/validate-promo ───────────────────────
+// Validate mã sự kiện (promo_code) — không cần user đã nhận trước
+router.post('/validate-promo', verifyToken, async (req, res, next) => {
+  try {
+    const { code, cart_total = 0 } = req.body;
+    if (!code) return res.status(400).json({ success: false, message: 'Thiếu mã' });
+
+    const [rows] = await db.query(
+      `SELECT * FROM ma_giam_gia
+       WHERE ma_code = ? AND trang_thai = 1
+         AND loai_voucher = 'promo_code'
+         AND ngay_bat_dau <= NOW() AND ngay_het_han >= NOW()`,
+      [code.toUpperCase()]
+    );
+    if (!rows.length) return res.status(400).json({ success: false, message: 'Mã không hợp lệ hoặc đã hết hạn' });
+
+    const v = rows[0];
+    if (v.da_su_dung >= v.so_lan_toi_da) return res.status(400).json({ success: false, message: 'Mã đã hết lượt sử dụng' });
+
+    const [usages] = await db.query(
+      'SELECT COUNT(*) AS cnt FROM lich_su_voucher WHERE ma_voucher = ? AND ma_nguoi_dung = ?',
+      [v.ma_voucher, req.user.id]
+    );
+    if (usages[0].cnt >= v.gioi_han_moi_nguoi) return res.status(400).json({ success: false, message: 'Bạn đã dùng mã này rồi' });
+
+    const cartNum = parseFloat(cart_total) || 0;
+    if (cartNum < parseFloat(v.don_hang_toi_thieu || 0)) {
+      return res.status(400).json({ success: false, message: `Đơn tối thiểu ${Number(v.don_hang_toi_thieu).toLocaleString('vi-VN')}đ` });
+    }
+
+    let discount = 0;
+    if (v.loai_giam === 'percent') {
+      discount = (cartNum * v.gia_tri_giam) / 100;
+      if (v.giam_toi_da) discount = Math.min(discount, v.giam_toi_da);
+    } else {
+      discount = Math.min(parseFloat(v.gia_tri_giam), cartNum);
+    }
+
+    res.json({ success: true, data: {
+      voucher_id: v.ma_voucher, code: v.ma_code, name: v.ten_voucher,
+      voucher_type: 'promo_code', discount_type: v.loai_giam,
+      discount_value: parseFloat(v.gia_tri_giam), discount_amount: discount,
+    }});
   } catch (err) { next(err); }
 });
 

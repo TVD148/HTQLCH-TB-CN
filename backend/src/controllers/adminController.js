@@ -247,7 +247,7 @@ const getVouchers = async (req, res, next) => {
   try {
     const [vouchers] = await db.query(`
       SELECT ma_voucher AS id, ma_code AS code, ten_voucher AS name, mo_ta AS description,
-             loai_giam AS discount_type, gia_tri_giam AS discount_value,
+             loai_giam AS discount_type, loai_voucher AS voucher_type, gia_tri_giam AS discount_value,
              giam_toi_da AS max_discount_amount, don_hang_toi_thieu AS min_order_value,
              so_lan_toi_da AS max_uses, da_su_dung AS used_count,
              gioi_han_moi_nguoi AS max_uses_per_user, trang_thai AS is_active,
@@ -259,7 +259,7 @@ const getVouchers = async (req, res, next) => {
 
 const createVoucher = async (req, res, next) => {
   try {
-    const { code, name, description, discount_type, discount_value, max_discount_amount,
+    const { code, name, description, voucher_type = 'product', discount_type, discount_value, max_discount_amount,
             min_order_value, max_uses, max_uses_per_user, start_date, expired_at } = req.body;
 
     if (!code || !discount_type || !discount_value || !expired_at) {
@@ -273,10 +273,10 @@ const createVoucher = async (req, res, next) => {
 
     const [result] = await db.query(
       `INSERT INTO ma_giam_gia
-         (ma_code, ten_voucher, mo_ta, loai_giam, gia_tri_giam, giam_toi_da,
+         (ma_code, ten_voucher, mo_ta, loai_giam, loai_voucher, gia_tri_giam, giam_toi_da,
           don_hang_toi_thieu, so_lan_toi_da, gioi_han_moi_nguoi, ngay_bat_dau, ngay_het_han)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [code.toUpperCase(), name, description, discount_type, discount_value,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [code.toUpperCase(), name, description, discount_type, voucher_type, discount_value,
        max_discount_amount || null, min_order_value || 0, max_uses || 1,
        max_uses_per_user || 1, start_date || new Date(), expired_at]
     );
@@ -291,14 +291,14 @@ const createVoucher = async (req, res, next) => {
 const updateVoucher = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { name, discount_type, discount_value, max_discount_amount, min_order_value,
+    const { name, voucher_type, discount_type, discount_value, max_discount_amount, min_order_value,
             max_uses, max_uses_per_user, is_active, expired_at } = req.body;
     await db.query(
       `UPDATE ma_giam_gia SET
-         ten_voucher=?, loai_giam=?, gia_tri_giam=?, giam_toi_da=?,
+         ten_voucher=?, loai_giam=?, loai_voucher=?, gia_tri_giam=?, giam_toi_da=?,
          don_hang_toi_thieu=?, so_lan_toi_da=?, gioi_han_moi_nguoi=?, trang_thai=?, ngay_het_han=?
        WHERE ma_voucher = ?`,
-      [name, discount_type, discount_value, max_discount_amount || null,
+      [name, discount_type, voucher_type || 'product', discount_value, max_discount_amount || null,
        min_order_value, max_uses, max_uses_per_user, is_active, expired_at, id]
     );
     res.json({ success: true, message: 'Cập nhật voucher thành công!' });

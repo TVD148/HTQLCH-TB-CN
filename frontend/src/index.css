@@ -114,6 +114,18 @@ ul, ol { list-style: none; }
 ::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 
+/* Dropdown scrollable container */
+.scroll-dropdown {
+  max-height: 260px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent) var(--surface-2);
+}
+.scroll-dropdown::-webkit-scrollbar { width: 5px; }
+.scroll-dropdown::-webkit-scrollbar-track { background: var(--surface-2); border-radius: 0 var(--radius-md) var(--radius-md) 0; }
+.scroll-dropdown::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 4px; }
+.scroll-dropdown::-webkit-scrollbar-thumb:hover { background: var(--accent-hover, #2563eb); }
+
 /* ===============================================
    LAYOUT UTILITIES
    =============================================== */
@@ -215,6 +227,14 @@ ul, ol { list-style: none; }
   border-radius: var(--radius-lg);
   overflow: hidden;
   transition: all var(--transition);
+}
+
+/* Card chứa dropdown — không clip */
+.card--dropdown {
+  overflow: visible !important;
+}
+.card--dropdown .card-body {
+  overflow: visible !important;
 }
 
 .card:hover {
@@ -1401,10 +1421,15 @@ ul, ol { list-style: none; }
   display: flex; align-items: center; justify-content: center;
 }
 
-.header-v2__search {
+.header-v2__search-wrap {
   flex: 1;
-  display: flex;
+  position: relative;
   max-width: 600px;
+}
+
+.header-v2__search {
+  width: 100%;
+  display: flex;
 }
 .header-v2__search input {
   flex: 1;

@@ -3,11 +3,12 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import {
   User, Package, MapPin, Star, Lock, LogOut, Ticket,
   ChevronRight, Plus, Trash2, CheckCircle2, Edit2,
-  Navigation, Search, X, Home, Briefcase, Map,
+  Navigation, Search, X, XCircle, Home, Briefcase, Map,
   ChevronDown, ChevronUp, Copy, Clock
 } from 'lucide-react';
 import { authApi, orderApi, addressApi, voucherApi, reviewApi } from '../api';
 import { useAuth } from '../context/AuthContext';
+import { useCart } from '../context/CartContext';
 import toast from 'react-hot-toast';
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
@@ -185,6 +186,9 @@ function OrderCard({ o, onOrderUpdated, existingReviews }) {
   const [details, setDetails] = useState(null);
   const [loading, setLoading] = useState(false);
   const [reviewModalItem, setReviewModalItem] = useState(null);
+  const [reordering, setReordering] = useState(false);
+  const { addToCart } = useCart();
+  const navigate = useNavigate();
 
   const toggleExpand = async () => {
     if (expanded) {
@@ -199,6 +203,19 @@ function OrderCard({ o, onOrderUpdated, existingReviews }) {
         } catch (e) {} finally { setLoading(false); }
       }
     }
+  };
+
+  const handleReorder = async (e) => {
+    e.stopPropagation();
+    if (!details?.items?.length) return;
+    setReordering(true);
+    try {
+      for (const item of details.items) {
+        await addToCart(item.product_id, item.quantity);
+      }
+      navigate('/cart');
+    } catch { alert('Không thể thêm vào giỏ hàng!'); }
+    finally { setReordering(false); }
   };
 
   const st = STATUS_MAP[o.status || o.trang_thai] || { label: o.status || o.trang_thai, color: '#999' };
@@ -253,6 +270,20 @@ function OrderCard({ o, onOrderUpdated, existingReviews }) {
               })}
             </div>
           ) : <div style={{ padding:10, textAlign:'center', color:'var(--text-muted)' }}>Lỗi tải chi tiết</div>}
+
+          {/* Mua lại */}
+          {o.status === 'da_giao' && details?.items?.length > 0 && (
+            <div style={{ marginTop:14, display:'flex', justifyContent:'flex-end', gap:8 }}>
+              <button
+                onClick={handleReorder}
+                disabled={reordering}
+                className="btn btn-primary btn-sm"
+                style={{ padding:'7px 18px', fontSize:'0.82rem', display:'flex', alignItems:'center', gap:6 }}
+              >
+                {reordering ? 'Đang thêm...' : '🔄 Mua lại'}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -365,25 +396,15 @@ function VoucherCard({ v }) {
       <div style={{ width: 1, borderLeft: `2px dashed ${accent}44`, margin: '10px 0', flexShrink: 0 }} />
       <div style={{ flex: 1, padding: '14px 16px' }}>
         <div style={{ fontSize: '1rem', fontWeight: 800, color: accent, marginBottom: 3 }}>{getDiscountLabel()}</div>
-        <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: 2 }}>
-          Mã: <strong style={{ color: 'var(--text-primary)', letterSpacing: 1 }}>{v.code}</strong>
-        </div>
         {v.min_order > 0 && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: 2 }}>Đơn tối thiểu: {fmtCur(v.min_order)}</div>}
         <div style={{ fontSize: '0.72rem', color: expired ? 'var(--red)' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
           <Clock size={11} /> HSD: {v.expires_at ? new Date(v.expires_at).toLocaleDateString('vi-VN') : 'Không giới hạn'}
         </div>
       </div>
-      <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'space-between', gap: 8, flexShrink: 0 }}>
+      <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center', gap: 8, flexShrink: 0 }}>
         {v.used ? <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}><XCircle size={13} /> Đã dùng</span>
         : expired ? <span style={{ fontSize: '0.72rem', color: 'var(--red)', display: 'flex', alignItems: 'center', gap: 4 }}><XCircle size={13} /> Hết hạn</span>
         : <span style={{ fontSize: '0.72rem', color: '#10b981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}><CheckCircle2 size={13} /> Có thể dùng</span>}
-        {!v.used && !expired && (
-          <button onClick={() => { navigator.clipboard.writeText(v.code); toast.success(`Đã chép mã ${v.code}!`); }}
-            style={{ display: 'flex', alignItems: 'center', gap: 5, background: accent, color: '#fff', border: 'none', padding: '5px 12px', borderRadius: 20, fontSize: '0.76rem', fontWeight: 700, cursor: 'pointer', transition: 'opacity 0.15s' }}
-            onMouseEnter={e => e.currentTarget.style.opacity = '0.85'} onMouseLeave={e => e.currentTarget.style.opacity = '1'}>
-            <Copy size={12} /> Sao chép
-          </button>
-        )}
       </div>
     </div>
   );

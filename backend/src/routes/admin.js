@@ -64,6 +64,32 @@ router.put('/categories/:id', requireAdmin, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ─── THUONG HIEU (BRANDS) ───────────────────────────────────
+router.post('/brands', requireAdmin, async (req, res, next) => {
+  try {
+    const { name, description, country } = req.body;
+    const slug = slugify(name, { lower: true, strict: true }) + '-' + Date.now();
+    const [r] = await db.query(
+      `INSERT INTO thuong_hieu (ten_thuong_hieu, duong_dan, mo_ta, quoc_gia)
+       VALUES (?, ?, ?, ?)`,
+      [name, slug, description, country || null]
+    );
+    res.status(201).json({ success: true, data: { id: r.insertId } });
+  } catch (err) { next(err); }
+});
+
+router.put('/brands/:id', requireAdmin, async (req, res, next) => {
+  try {
+    const { name, description, country } = req.body;
+    await db.query(
+      `UPDATE thuong_hieu SET ten_thuong_hieu=?, mo_ta=?, quoc_gia=?
+       WHERE ma_thuong_hieu=?`,
+      [name, description, country || null, req.params.id]
+    );
+    res.json({ success: true, message: 'Cập nhật thương hiệu thành công!' });
+  } catch (err) { next(err); }
+});
+
 // ─── DON HANG (ORDERS) ────────────────────────────────────────
 router.get   ('/orders',              requireStaff, getAllOrders);
 router.patch ('/orders/:id/status',   requireStaff, updateOrderStatus);
@@ -122,6 +148,34 @@ router.patch('/warranty/:id/status', requireStaff, async (req, res, next) => {
        WHERE ma_bao_hanh=?`,
       [status, resolution_note, req.user.id, status === 'hoan_thanh' ? new Date() : null, req.params.id]
     );
+
+    // Gửi thông báo cho khách hàng
+    const [ycbh] = await db.query(
+      `SELECT ycbh.ma_nguoi_dung, ctdh.ten_san_pham
+       FROM yeu_cau_bao_hanh ycbh
+       JOIN chi_tiet_don_hang ctdh ON ctdh.ma_chi_tiet = ycbh.ma_chi_tiet_dh
+       WHERE ycbh.ma_bao_hanh = ?`, [req.params.id]
+    );
+    if (ycbh.length) {
+      const statusLabels = {
+        dang_xu_ly: 'đang được xử lý',
+        hoan_thanh: 'đã hoàn tất',
+        tu_choi:    'đã bị từ chối',
+      };
+      if (statusLabels[status]) {
+        await db.query(
+          `INSERT INTO thong_bao (ma_nguoi_dung, tieu_de, noi_dung, loai, ma_tham_chieu)
+           VALUES (?, ?, ?, 'bao_hanh', ?)`,
+          [
+            ycbh[0].ma_nguoi_dung,
+            `Bảo hành #${req.params.id} ${statusLabels[status]}`,
+            `Yêu cầu bảo hành sản phẩm "${ycbh[0].ten_san_pham}" ${statusLabels[status]}.${resolution_note ? ' Ghi chú: ' + resolution_note : ''}`,
+            req.params.id.toString()
+          ]
+        );
+      }
+    }
+
     res.json({ success: true, message: 'Cập nhật bảo hành thành công!' });
   } catch (err) { next(err); }
 });
@@ -217,6 +271,79 @@ router.patch('/reviews/:id/approve', requireAdmin, async (req, res, next) => {
       );
     }
     res.json({ success: true, message: 'Đã duyệt đánh giá!' });
+  } catch (err) { next(err); }
+});
+
+// PATCH /api/admin/reviews/:id/reply — Admin trả lời đánh giá
+router.patch('/reviews/:id/reply', requireAdmin, async (req, res, next) => {
+  try {
+    const { reply } = req.body;
+    if (!reply?.trim()) return res.status(400).json({ success: false, message: 'Nội dung trả lời không được để trống' });
+
+    await db.query('UPDATE danh_gia SET phan_hoi_admin = ?, ngay_phan_hoi = NOW() WHERE ma_danh_gia = ?',
+      [reply, req.params.id]);
+
+    // Gửi notification cho user
+    const [review] = await db.query(
+      `SELECT dg.ma_nguoi_dung, sp.ten_san_pham
+       FROM danh_gia dg JOIN san_pham sp ON sp.ma_san_pham = dg.ma_san_pham
+       WHERE dg.ma_danh_gia = ?`, [req.params.id]
+    );
+    if (review.length) {
+      await db.query(
+        `INSERT INTO thong_bao (ma_nguoi_dung, tieu_de, noi_dung, loai, ma_tham_chieu)
+         VALUES (?, ?, ?, 'danh_gia', ?)`,
+        [
+          review[0].ma_nguoi_dung,
+          'TechStore đã trả lời đánh giá của bạn',
+          `Admin đã phản hồi đánh giá sản phẩm "${review[0].ten_san_pham}" của bạn. Nhấn để xem chi tiết.`,
+          req.params.id.toString()
+        ]
+      );
+    }
+    res.json({ success: true, message: 'Đã gửi phản hồi!' });
+  } catch (err) { next(err); }
+});
+
+// POST /api/admin/notifications/broadcast — Admin tạo thông báo sự kiện gửi tất cả
+router.post('/notifications/broadcast', requireAdmin, async (req, res, next) => {
+  try {
+    const { title, content, type = 'su_kien', voucher_id } = req.body;
+    if (!title?.trim() || !content?.trim()) {
+      return res.status(400).json({ success: false, message: 'Tiêu đề và nội dung không được để trống' });
+    }
+
+    // Lấy tất cả user active
+    const [users] = await db.query(
+      'SELECT ma_nguoi_dung FROM nguoi_dung WHERE trang_thai = 1 AND vai_tro = \'khach_hang\''
+    );
+
+    let sent = 0;
+    for (const u of users) {
+      await db.query(
+        `INSERT INTO thong_bao (ma_nguoi_dung, tieu_de, noi_dung, loai, ma_tham_chieu)
+         VALUES (?, ?, ?, ?, ?)`,
+        [u.ma_nguoi_dung, title, content, type, voucher_id?.toString() || null]
+      );
+      sent++;
+    }
+
+    res.json({ success: true, message: `Đã gửi thông báo tới ${sent} người dùng` });
+  } catch (err) { next(err); }
+});
+
+// GET /api/admin/notifications/list — Admin xem tất cả thông báo đã broadcast
+router.get('/notifications/broadcast', requireAdmin, async (req, res, next) => {
+  try {
+    const [rows] = await db.query(
+      `SELECT tieu_de AS title, noi_dung AS content, loai AS type, ngay_tao AS created_at,
+              COUNT(*) AS sent_count
+       FROM thong_bao
+       WHERE loai = 'su_kien'
+       GROUP BY tieu_de, noi_dung, loai, ngay_tao
+       ORDER BY ngay_tao DESC LIMIT 20`
+    );
+    res.json({ success: true, data: rows });
   } catch (err) { next(err); }
 });
 

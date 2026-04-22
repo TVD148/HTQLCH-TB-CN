@@ -123,7 +123,7 @@ const getProductBySlug = async (req, res, next) => {
               p.danh_gia_tb AS avg_rating, p.luot_xem AS view_count,
               p.noi_bat AS is_featured, p.trang_thai AS is_active,
               p.mo_ta AS description, p.mo_ta_ngan AS short_desc,
-              dm.ten_danh_muc AS category_name, dm.duong_dan AS category_slug,
+              dm.ma_danh_muc AS category_id, dm.ten_danh_muc AS category_name, dm.duong_dan AS category_slug,
               th.ten_thuong_hieu AS brand_name, th.logo AS brand_logo
        FROM san_pham p
        JOIN danh_muc dm  ON dm.ma_danh_muc    = p.ma_danh_muc

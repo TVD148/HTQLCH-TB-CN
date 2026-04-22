@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import { SlidersHorizontal, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { productApi, categoryApi, brandApi, wishlistApi } from '../api';
 import ProductCard from '../components/ProductCard';
@@ -138,7 +138,7 @@ export default function ShopPage() {
     if (bIdx !== -1) return 1;
     return (b.product_count || 0) - (a.product_count || 0);
   });
-  const visibleBrands = showAllBrands ? sortedBrands : sortedBrands.slice(0, 10);
+  const visibleBrands = showAllBrands ? sortedBrands : sortedBrands.slice(0, 5);
 
   // Pagination logic: show max 7 page buttons with ellipsis
   const buildPageNums = () => {
@@ -155,13 +155,42 @@ export default function ShopPage() {
     return pages;
   };
 
+  // Find selected category name for breadcrumb
+  const selectedCat = categories.find(c => String(c.id) === String(category));
+
   return (
     <div className="section">
       <div className="container">
+
+        {/* Breadcrumb */}
+        <nav style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 18, fontSize: '0.85rem', flexWrap: 'wrap' }}>
+          <Link to="/" style={{ color: 'var(--text-muted)', textDecoration: 'none', transition: 'color 0.15s' }}
+            onMouseEnter={e => e.target.style.color='var(--accent)'}
+            onMouseLeave={e => e.target.style.color='var(--text-muted)'}>
+            Trang chủ
+          </Link>
+          <span style={{ color: 'var(--text-muted)' }}>›</span>
+          {selectedCat ? (
+            <>
+              <Link to="/shop" style={{ color: 'var(--text-muted)', textDecoration: 'none', transition: 'color 0.15s' }}
+                onMouseEnter={e => e.target.style.color='var(--accent)'}
+                onMouseLeave={e => e.target.style.color='var(--text-muted)'}>
+                Sản phẩm
+              </Link>
+              <span style={{ color: 'var(--text-muted)' }}>›</span>
+              <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{selectedCat.name}</span>
+            </>
+          ) : (
+            <span style={{ color: 'var(--accent)', fontWeight: 600 }}>
+              {search ? `Tìm kiếm: "${search}"` : featured ? 'Sản phẩm nổi bật' : 'Sản phẩm'}
+            </span>
+          )}
+        </nav>
+
         {/* Topbar */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
           <h1 style={{ fontSize: '1.5rem', fontWeight: 800, flex: 1 }}>
-            {search ? `Kết quả: "${search}"` : featured ? '⭐ Sản phẩm nổi bật' : 'Tất cả sản phẩm'}
+            {search ? `Kết quả: "${search}"` : featured ? '⭐ Sản phẩm nổi bật' : selectedCat ? selectedCat.name : 'Tất cả sản phẩm'}
           </h1>
 
           {/* Sort */}
@@ -206,17 +235,11 @@ export default function ShopPage() {
             <div className="filter-group">
               <div className="filter-title">Danh mục</div>
               {visibleCats.map(cat => (
-                <div key={cat.id}>
-                  <div
-                    className="filter-option"
-                    style={{ fontWeight: category === String(cat.id) ? 700 : 500, color: category === String(cat.id) ? 'var(--accent)' : undefined }}
-                    onClick={() => setParam('category', category === String(cat.id) ? '' : cat.id)}
-                  >
-                    <span style={{ width: 12, height: 12, borderRadius: 3, background: category === String(cat.id) ? 'var(--accent)' : 'var(--surface-3)', display: 'inline-block', flexShrink: 0, transition: 'background 0.15s' }} />
-                    {cat.name}
-                    <span style={{ marginLeft: 'auto', fontSize: '0.75rem', color: 'var(--text-muted)' }}>{cat.product_count}</span>
-                  </div>
-                </div>
+                <label key={cat.id} className="filter-option" style={{ fontWeight: category === String(cat.id) ? 700 : 500, color: category === String(cat.id) ? 'var(--accent)' : undefined, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={category === String(cat.id)} onChange={() => setParam('category', category === String(cat.id) ? '' : cat.id)} />
+                  {cat.name}
+                  <span style={{ marginLeft: 'auto', fontSize: '0.75rem', color: 'var(--text-muted)' }}>{cat.product_count}</span>
+                </label>
               ))}
               {parentCats.length > 5 && (
                 <button
@@ -238,12 +261,12 @@ export default function ShopPage() {
                   <span style={{ marginLeft: 'auto', fontSize: '0.75rem', color: 'var(--text-muted)' }}>{b.product_count}</span>
                 </label>
               ))}
-              {sortedBrands.length > 10 && (
+              {sortedBrands.length > 5 && (
                 <button
                   onClick={() => setShowAllBrands(v => !v)}
                   style={{ marginTop: 6, background: 'none', border: 'none', color: 'var(--accent)', fontSize: '0.82rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, padding: '4px 0' }}
                 >
-                  {showAllBrands ? <><ChevronUp size={13} /> Ẩn bớt</> : <><ChevronDown size={13} /> Xem thêm ({sortedBrands.length - 10})</>}
+                  {showAllBrands ? <><ChevronUp size={13} /> Ẩn bớt</> : <><ChevronDown size={13} /> Xem thêm ({sortedBrands.length - 5})</>}
                 </button>
               )}
             </div>

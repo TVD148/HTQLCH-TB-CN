@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Package, Truck, CheckCircle, XCircle, Clock, ArrowLeft } from 'lucide-react';
 import { orderApi } from '../api';
+import { useCart } from '../context/CartContext';
 
 const fmt = (p) => new Intl.NumberFormat('vi-VN',{style:'currency',currency:'VND'}).format(p||0);
 
@@ -19,9 +20,12 @@ const STEPS = ['pending','confirmed','shipping','delivered'];
 
 export default function OrderDetailPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const { addToCart } = useCart();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState(false);
+  const [reordering, setReordering] = useState(false);
 
   useEffect(() => {
     document.title = 'Chi tiết đơn hàng – TechStore';
@@ -38,6 +42,18 @@ export default function OrderDetailPage() {
     finally { setCancelling(false); }
   };
 
+  const handleReorder = async () => {
+    if (!order?.items?.length) return;
+    setReordering(true);
+    try {
+      for (const item of order.items) {
+        await addToCart(item.product_id, item.quantity);
+      }
+      navigate('/cart');
+    } catch { alert('Không thể thêm vào giỏ hàng!'); }
+    finally { setReordering(false); }
+  };
+
   if (loading) return <div className="spinner-wrap"><div className="spinner"/></div>;
   if (!order)  return <div className="section"><div className="container"><p>Không tìm thấy đơn hàng.</p></div></div>;
 
@@ -48,8 +64,8 @@ export default function OrderDetailPage() {
   return (
     <div className="section"><div className="container">
       {/* Back link */}
-      <Link to="/orders" style={{display:'inline-flex',alignItems:'center',gap:6,color:'var(--text-muted)',fontSize:'0.88rem',marginBottom:20}}>
-        <ArrowLeft size={14}/> Quay lại danh sách đơn
+      <Link to="/profile?tab=orders" style={{display:'inline-flex',alignItems:'center',gap:6,color:'var(--text-muted)',fontSize:'0.88rem',marginBottom:20}}>
+        <ArrowLeft size={14}/> Quay lại lịch sử đơn hàng
       </Link>
 
       {/* Header */}
@@ -178,9 +194,14 @@ export default function OrderDetailPage() {
           )}
 
           {order.status === 'delivered' && (
-            <Link to={`/shop`} className="btn btn-primary btn-full" style={{marginTop:16,justifyContent:'center'}}>
-              🔄 Mua lại
-            </Link>
+            <button
+              className="btn btn-primary btn-full"
+              style={{marginTop:16,justifyContent:'center'}}
+              onClick={handleReorder}
+              disabled={reordering}
+            >
+              {reordering ? 'Đang thêm vào giỏ...' : '🔄 Mua lại'}
+            </button>
           )}
         </div>
       </div>

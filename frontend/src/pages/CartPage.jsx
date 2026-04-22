@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Trash2, Tag, X, ShoppingBag } from 'lucide-react';
+import { Trash2, ShoppingBag } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
@@ -8,21 +8,9 @@ import toast from 'react-hot-toast';
 const fmt = (p) => new Intl.NumberFormat('vi-VN',{style:'currency',currency:'VND'}).format(p);
 
 export default function CartPage() {
-  const { cart, updateItem, removeItem, clearCart, applyVoucher, removeVoucher, voucher, finalTotal } = useCart();
+  const { cart, updateItem, removeItem, clearCart, finalTotal } = useCart();
   const { user } = useAuth();
-  const [voucherCode, setVoucherCode] = useState('');
-  const [voucherLoading, setVoucherLoading] = useState(false);
   const navigate = useNavigate();
-
-  const handleVoucher = async () => {
-    if (!voucherCode.trim()) return;
-    setVoucherLoading(true);
-    try {
-      const res = await applyVoucher(voucherCode.trim());
-      toast.success(res.message);
-    } catch (err) { toast.error(err.response?.data?.message || 'Mã không hợp lệ!'); }
-    finally { setVoucherLoading(false); }
-  };
 
   if (!cart.items.length) return (
     <div className="section"><div className="container"><div className="empty-state" style={{textAlign: 'center', padding: '60px 0'}}>
@@ -69,23 +57,8 @@ export default function CartPage() {
         <div className="order-summary-card">
           <div style={{fontWeight:700,fontSize:'1rem',marginBottom:16}}>Tóm tắt đơn hàng</div>
           <div className="summary-row"><span>Tạm tính</span><span>{fmt(cart.subtotal)}</span></div>
-          {voucher && <div className="summary-row discount"><span>Giảm ({voucher.voucher_code})</span><span>-{fmt(voucher.discount_amount)}</span></div>}
           <div className="summary-row total"><span>Tổng cộng</span><span style={{color:'var(--accent)',fontSize:'1.2rem'}}>{fmt(finalTotal)}</span></div>
-
-          {/* Voucher */}
-          {!voucher ? (
-            <div className="voucher-input-wrap">
-              <input className="form-control form-control-sm" placeholder="Nhập mã giảm giá" value={voucherCode} onChange={e=>setVoucherCode(e.target.value)}
-                onKeyDown={e=>e.key==='Enter'&&handleVoucher()} style={{flex:1}} />
-              <button className="btn btn-outline btn-sm" onClick={handleVoucher} disabled={voucherLoading}><Tag size={14}/> Áp dụng</button>
-            </div>
-          ) : (
-            <div style={{display:'flex',alignItems:'center',gap:8,padding:'8px 12px',background:'var(--emerald-light)',border:'1px solid var(--emerald)',borderRadius:'var(--radius-md)',marginTop:12,fontSize:'0.85rem'}}>
-              <Tag size={14} color="var(--emerald)"/>
-              <span style={{flex:1,color:'var(--emerald)',fontWeight:600}}>{voucher.voucher_code}</span>
-              <button onClick={()=>{removeVoucher();setVoucherCode('');}} style={{background:'none',border:'none',color:'var(--emerald)',cursor:'pointer'}}><X size={14}/></button>
-            </div>
-          )}
+          <p style={{ fontSize:'0.8rem', color:'var(--text-muted)', marginTop:8, textAlign:'center' }}>Mã giảm giá &amp; voucher áp dụng ở bước thanh toán</p>
 
           <button className="btn btn-primary btn-full" style={{marginTop:16,height:46,fontSize:'1rem'}}
             onClick={()=>user?navigate('/checkout'):navigate('/login',{state:{from:{pathname:'/checkout'}}})}>

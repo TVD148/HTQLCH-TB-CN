@@ -7,6 +7,7 @@ const fmt = (p) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency:
 
 const emptyForm = {
   code: '', name: '', description: '',
+  voucher_type: 'product',  // product | shipping | promo_code
   discount_type: 'percent', discount_value: '',
   max_discount_amount: '', min_order_value: 0,
   max_uses: 100, max_uses_per_user: 1,
@@ -15,6 +16,8 @@ const emptyForm = {
 
 const TYPE_LABELS = { percent: '% Phần trăm', fixed_amount: 'Số tiền cố định', freeship: '🚚 Miễn phí ship' };
 const TYPE_COLORS = { percent: 'var(--accent)', fixed_amount: 'var(--emerald)', freeship: 'var(--amber)' };
+const VOUCHER_TYPE_LABELS = { product: 'Sản phẩm', shipping: 'Vận chuyển', promo_code: 'Mã sự kiện' };
+const VOUCHER_TYPE_COLORS = { product: 'var(--accent)', shipping: 'var(--emerald)', promo_code: '#8B5CF6' };
 
 export default function AdminVouchers() {
   const [vouchers,   setVouchers]   = useState([]);
@@ -91,7 +94,7 @@ export default function AdminVouchers() {
         <table className="data-table">
           <thead>
             <tr>
-              <th>Mã</th><th>Tên</th><th>Loại</th><th>Giảm</th>
+              <th>Mã</th><th>Tên</th><th>Loại Voucher</th><th>Loại giảm</th><th>Giảm</th>
               <th>Đơn tối thiểu</th><th>Lượt dùng</th><th>Hết hạn</th><th>Trạng thái</th><th></th>
             </tr>
           </thead>
@@ -105,12 +108,12 @@ export default function AdminVouchers() {
                 </td>
                 <td>{v.name}</td>
                 <td>
-                  <span style={{
-                    display: 'inline-block', padding: '2px 8px', borderRadius: 4,
-                    background: `${TYPE_COLORS[v.discount_type]}22`,
-                    color: TYPE_COLORS[v.discount_type],
-                    fontSize: '0.75rem', fontWeight: 700,
-                  }}>
+                  <span style={{ display:'inline-block', padding:'2px 8px', borderRadius:4, background:`${VOUCHER_TYPE_COLORS[v.voucher_type]||'var(--accent)'}22`, color:VOUCHER_TYPE_COLORS[v.voucher_type]||'var(--accent)', fontSize:'0.72rem', fontWeight:700 }}>
+                    {VOUCHER_TYPE_LABELS[v.voucher_type] || v.voucher_type}
+                  </span>
+                </td>
+                <td>
+                  <span style={{ display:'inline-block', padding:'2px 8px', borderRadius:4, background:`${TYPE_COLORS[v.discount_type]}22`, color:TYPE_COLORS[v.discount_type], fontSize:'0.72rem', fontWeight:700 }}>
                     {TYPE_LABELS[v.discount_type]}
                   </span>
                 </td>
@@ -175,6 +178,15 @@ export default function AdminVouchers() {
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                   <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label">Loại Voucher *</label>
+                    <select className="form-control" value={form.voucher_type}
+                      onChange={e => setForm({ ...form, voucher_type: e.target.value })}>
+                      <option value="product">📦 Sản phẩm</option>
+                      <option value="shipping">🚚 Vận chuyển</option>
+                      <option value="promo_code">🎉 Mã sự kiện</option>
+                    </select>
+                  </div>
+                  <div className="form-group" style={{ margin: 0 }}>
                     <label className="form-label">Loại giảm</label>
                     <select className="form-control" value={form.discount_type}
                       onChange={e => setForm({ ...form, discount_type: e.target.value })}>
@@ -183,16 +195,17 @@ export default function AdminVouchers() {
                       <option value="freeship">🚚 Miễn phí vận chuyển</option>
                     </select>
                   </div>
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label">
-                      Giá trị {form.discount_type === 'freeship' ? '(ship được giảm)' : '*'}
-                    </label>
-                    <input className="form-control" type="number"
-                      required={form.discount_type !== 'freeship'}
-                      value={form.discount_value}
-                      onChange={e => setForm({ ...form, discount_value: e.target.value })}
-                      placeholder={form.discount_type === 'percent' ? '15' : form.discount_type === 'freeship' ? '30000' : '50000'} />
-                  </div>
+                </div>
+
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label">
+                    Giá trị {form.discount_type === 'freeship' ? '(ship được giảm)' : '*'}
+                  </label>
+                  <input className="form-control" type="number"
+                    required={form.discount_type !== 'freeship'}
+                    value={form.discount_value}
+                    onChange={e => setForm({ ...form, discount_value: e.target.value })}
+                    placeholder={form.discount_type === 'percent' ? '15' : form.discount_type === 'freeship' ? '30000' : '50000'} />
                 </div>
 
                 {form.discount_type === 'percent' && (

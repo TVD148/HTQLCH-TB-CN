@@ -39,12 +39,13 @@ export const orderApi = {
 };
 
 export const voucherApi = {
-  getPublic:   ()                 => api.get('/vouchers/public'),
-  validate:    (code, cart_total) => api.get(`/vouchers/validate/${code}`, { params: { cart_total } }),
-  getAvailable:(cart_total)       => api.get('/vouchers/available', { params: { cart_total } }),
-  sendWeekly:  (voucher_id)       => api.post('/vouchers/send-weekly', { voucher_id }),
-  claim:       (id)               => api.post(`/vouchers/claim/${id}`),
-  getMine:     ()                 => api.get('/vouchers/mine'),
+  getPublic:     ()                        => api.get('/vouchers/public'),
+  validate:      (code, cart_total)        => api.get(`/vouchers/validate/${code}`, { params: { cart_total } }),
+  getAvailable:  (cart_total)              => api.get('/vouchers/available', { params: { cart_total } }),
+  sendWeekly:    (voucher_id)              => api.post('/vouchers/send-weekly', { voucher_id }),
+  claim:         (id)                      => api.post(`/vouchers/claim/${id}`),
+  getMine:       (params)                  => api.get('/vouchers/mine', { params }),
+  validatePromo: (code, cart_total)        => api.post('/vouchers/validate-promo', { code, cart_total }),
 };
 
 export const wishlistApi = {
@@ -98,6 +99,8 @@ export const adminApi = {
   getInventoryLogs:  (params)      => api.get('/admin/inventory/logs', { params }),
   getReviews:        (params)      => api.get('/admin/reviews', { params }),
   approveReview:     (id)          => api.patch(`/admin/reviews/${id}/approve`),
+  createBrand:       (data)        => api.post('/admin/brands', data),
+  updateBrand:       (id, data)    => api.put(`/admin/brands/${id}`, data),
 };
 
 export const addressApi = {

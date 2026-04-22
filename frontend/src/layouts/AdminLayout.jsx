@@ -1,18 +1,21 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Package, ShoppingBag, Tag, Users, Shield, BarChart2, Archive, FolderOpen, Zap, LogOut } from 'lucide-react';
+import { LayoutDashboard, Package, ShoppingBag, Tag, Users, Shield, BarChart2, Archive, FolderOpen, Zap, LogOut, Bell } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const NAV = [
-  { to: '/admin',            icon: <LayoutDashboard size={16}/>, label: 'Dashboard',    exact: true },
-  { to: '/admin/products',   icon: <Package size={16}/>,         label: 'Sản phẩm' },
-  { to: '/admin/categories', icon: <FolderOpen size={16}/>,      label: 'Danh mục' },
-  { to: '/admin/orders',     icon: <ShoppingBag size={16}/>,     label: 'Đơn hàng' },
-  { to: '/admin/vouchers',   icon: <Tag size={16}/>,             label: 'Voucher' },
-  { to: '/admin/users',      icon: <Users size={16}/>,           label: 'Khách hàng' },
-  { to: '/admin/warranty',   icon: <Shield size={16}/>,          label: 'Bảo hành' },
-  { to: '/admin/inventory',  icon: <Archive size={16}/>,         label: 'Kho hàng' },
-  { to: '/admin/reports',    icon: <BarChart2 size={16}/>,       label: 'Báo cáo' },
+  { to: '/admin',                icon: <LayoutDashboard size={16}/>, label: 'Dashboard',    exact: true },
+  { to: '/admin/products',       icon: <Package size={16}/>,         label: 'Sản phẩm' },
+  { to: '/admin/categories',     icon: <FolderOpen size={16}/>,      label: 'Danh mục' },
+  { to: '/admin/brands',         icon: <Tag size={16}/>,             label: 'Thương hiệu' },
+  { to: '/admin/orders',         icon: <ShoppingBag size={16}/>,     label: 'Đơn hàng' },
+  { to: '/admin/vouchers',       icon: <Tag size={16}/>,             label: 'Voucher' },
+  { to: '/admin/users',          icon: <Users size={16}/>,           label: 'Khách hàng' },
+  { to: '/admin/warranty',       icon: <Shield size={16}/>,          label: 'Bảo hành' },
+  { to: '/admin/inventory',      icon: <Archive size={16}/>,         label: 'Kho hàng' },
+  { to: '/admin/reports',        icon: <BarChart2 size={16}/>,       label: 'Báo cáo' },
+  { to: '/admin/notifications',  icon: <Bell size={16}/>,            label: 'Thông báo' },
 ];
+
 
 export default function AdminLayout() {
   const { user, logout } = useAuth();

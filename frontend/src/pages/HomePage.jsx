@@ -195,7 +195,16 @@ export default function HomePage() {
             {/* Body */}
             <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
               {[
-                { label: 'Mã giảm giá:', value: infoVoucher.code, bold: true },
+                { label: 'Tên voucher:', value: infoVoucher.name, bold: true },
+                {
+                  label: 'Loại:',
+                  value: infoVoucher.discount_type === 'percent'
+                    ? `Giảm ${infoVoucher.discount_value}%${infoVoucher.max_discount ? ` (tối đa ${fmt(infoVoucher.max_discount)})` : ''}`
+                    : infoVoucher.discount_type === 'fixed_amount'
+                    ? `Giảm ${fmt(infoVoucher.discount_value)}`
+                    : 'Miễn phí vận chuyển',
+                  bold: true,
+                },
                 {
                   label: 'Ngày hết hạn:',
                   value: infoVoucher.expires_at
@@ -242,12 +251,6 @@ export default function HomePage() {
 
             {/* Footer */}
             <div style={{ padding: '10px 24px 20px', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-              <button
-                onClick={() => { navigator.clipboard.writeText(infoVoucher.code); toast.success(`Đã chép mã ${infoVoucher.code}!`); }}
-                className="btn btn-ghost btn-sm"
-              >
-                Sao chép mã
-              </button>
               <button
                 onClick={() => setInfoVoucher(null)}
                 className="btn btn-sm"
@@ -476,9 +479,6 @@ export default function HomePage() {
                           color: accentColor, marginBottom: 4,
                         }}>{discountTitle}</div>
                         {subLabel && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: 4 }}>{subLabel}</div>}
-                        <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: 2 }}>
-                          Mã: <strong style={{ color: 'var(--text-primary)', letterSpacing: 1 }}>{v.code}</strong>
-                        </div>
                         <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: 12 }}>
                           HSD: {v.expires_at ? new Date(v.expires_at).toLocaleDateString('vi-VN') : '12/12/2026'}
                         </div>

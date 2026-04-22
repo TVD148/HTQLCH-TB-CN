@@ -15,7 +15,9 @@ const createOrder = async (req, res, next) => {
     const {
       receiver_name, receiver_phone, shipping_address,
       payment_method = 'tien_mat', note = '',
-      voucher_id = null, loyalty_points_used = 0,
+      product_voucher_id = null,   // Voucher giảm tiền sản phẩm
+      shipping_voucher_id = null,  // Voucher giảm phí vận chuyển
+      loyalty_points_used = 0,
     } = req.body;
 
     if (!receiver_name || !receiver_phone || !shipping_address) {
@@ -35,7 +37,9 @@ const createOrder = async (req, res, next) => {
     const [items] = await conn.query(
       `SELECT ctgh.ma_chi_tiet AS id, ctgh.ma_san_pham AS product_id,
               ctgh.so_luong AS quantity, ctgh.don_gia AS unit_price,
-              sp.ten_san_pham AS name, sp.anh_dai_dien AS thumbnail, sp.so_luong_ton AS stock_quantity
+              sp.ten_san_pham AS name, sp.anh_dai_dien AS thumbnail,
+              sp.so_luong_ton AS stock_quantity,
+              COALESCE(sp.phi_van_chuyen, 30000) AS ship_fee
        FROM chi_tiet_gio_hang ctgh
        JOIN san_pham sp ON sp.ma_san_pham = ctgh.ma_san_pham
        WHERE ctgh.ma_gio_hang = ?`,
@@ -58,76 +62,78 @@ const createOrder = async (req, res, next) => {
     }
 
     const subtotal = items.reduce((s, i) => s + parseFloat(i.unit_price) * i.quantity, 0);
-    let discountAmount = 0;
-    let shippingDiscount = 0; // Rieng freeship
+    // Phí vận chuyển: tổng phi_van_chuyen của từng sản phẩm
+    let shippingFee = items.reduce((s, i) => s + parseFloat(i.ship_fee || 30000), 0);
+    let productDiscount = 0;
+    let shippingDiscount = 0;
 
     // ─── Voucher ────────────────────────────────────────────
-    if (voucher_id) {
-      const [vouchers] = await conn.query(
-        'SELECT * FROM ma_giam_gia WHERE ma_voucher = ? AND trang_thai = 1 AND ngay_het_han >= NOW()',
-        [voucher_id]
+    const applyVoucher = async (voucherId, isShipping) => {
+      const [rows] = await conn.query(
+        `SELECT * FROM ma_giam_gia WHERE ma_voucher = ? AND trang_thai = 1
+         AND ngay_het_han >= NOW()`,
+        [voucherId]
       );
-      if (vouchers.length) {
-        const v = vouchers[0];
+      if (!rows.length) return;
+      const v = rows[0];
+      const base = isShipping ? shippingFee : subtotal;
 
-        // Kiem tra dieu kien don toi thieu
-        if (subtotal >= parseFloat(v.don_hang_toi_thieu || 0)) {
-          if (v.loai_giam === 'percent') {
-            discountAmount = (subtotal * parseFloat(v.gia_tri_giam)) / 100;
-            if (v.giam_toi_da) discountAmount = Math.min(discountAmount, parseFloat(v.giam_toi_da));
-            discountAmount = Math.min(discountAmount, subtotal);
-          } else if (v.loai_giam === 'fixed_amount') {
-            discountAmount = Math.min(parseFloat(v.gia_tri_giam), subtotal);
-          } else if (v.loai_giam === 'freeship') {
-            // Freeship: ghi nhan phi ship duoc mien (hien tai phi ship = 0, dat cho tuong lai)
-            shippingDiscount = parseFloat(v.gia_tri_giam) || 0;
-          }
+      if (parseFloat(base) >= parseFloat(v.don_hang_toi_thieu || 0)) {
+        if (v.loai_giam === 'percent') {
+          let d = (base * parseFloat(v.gia_tri_giam)) / 100;
+          if (v.giam_toi_da) d = Math.min(d, parseFloat(v.giam_toi_da));
+          if (isShipping) shippingDiscount = Math.min(d, shippingFee);
+          else productDiscount = Math.min(d, subtotal);
+        } else if (v.loai_giam === 'fixed_amount' || v.loai_giam === 'freeship') {
+          const d = Math.min(parseFloat(v.gia_tri_giam || 0), base);
+          if (isShipping) shippingDiscount = d;
+          else productDiscount = d;
         }
-
-        await conn.query(
-          'UPDATE ma_giam_gia SET da_su_dung = da_su_dung + 1 WHERE ma_voucher = ?',
-          [voucher_id]
-        );
-
-        // Danh dau voucher_nguoi_dung da su dung (neu la voucher rieng)
-        await conn.query(
-          `UPDATE voucher_nguoi_dung SET da_su_dung = 1, ngay_su_dung = NOW()
-           WHERE ma_voucher = ? AND ma_nguoi_dung = ? AND da_su_dung = 0`,
-          [voucher_id, req.user.id]
-        );
       }
-    }
 
-    // ─── Diem tich luy: 100K = 1 diem, 1 diem = 1K ─────────
+      await conn.query(
+        'UPDATE ma_giam_gia SET da_su_dung = da_su_dung + 1 WHERE ma_voucher = ?',
+        [voucherId]
+      );
+      await conn.query(
+        `UPDATE voucher_nguoi_dung SET da_su_dung = 1, ngay_su_dung = NOW()
+         WHERE ma_voucher = ? AND ma_nguoi_dung = ? AND da_su_dung = 0`,
+        [voucherId, req.user.id]
+      );
+    };
+
+    if (product_voucher_id)  await applyVoucher(product_voucher_id, false);
+    if (shipping_voucher_id) await applyVoucher(shipping_voucher_id, true);
+
     let pointsDeduction = 0;
     if (loyalty_points_used > 0) {
       const [userRow] = await conn.query(
         'SELECT diem_tich_luy FROM nguoi_dung WHERE ma_nguoi_dung = ?', [req.user.id]
       );
       const pointsToUse = Math.min(loyalty_points_used, userRow[0].diem_tich_luy);
-      pointsDeduction = pointsToUse * 1000; // 1 diem = 1000 VND
-      pointsDeduction = Math.min(pointsDeduction, subtotal - discountAmount);
+      pointsDeduction = pointsToUse * 1000;
+      pointsDeduction = Math.min(pointsDeduction, subtotal - productDiscount);
       await conn.query(
         'UPDATE nguoi_dung SET diem_tich_luy = diem_tich_luy - ? WHERE ma_nguoi_dung = ?',
         [pointsToUse, req.user.id]
       );
     }
 
-    const phi_van_chuyen = Math.max(0, 0 - shippingDiscount); // Phi ship = 0, freeship giu de mo rong
-    const tong_tien = subtotal - discountAmount - pointsDeduction + phi_van_chuyen;
+    const phi_van_chuyen = Math.max(0, shippingFee - shippingDiscount);
+    const tong_tien = Math.max(0, subtotal - productDiscount - pointsDeduction + phi_van_chuyen);
     const pointsEarned = Math.floor(tong_tien / 100000); // 100K = 1 diem
     const ma_code = generateOrderCode();
 
 
     const [orderResult] = await conn.query(
       `INSERT INTO don_hang
-         (ma_nguoi_dung, ma_code, tam_tinh, so_tien_giam, phi_van_chuyen, tong_tien,
-          ma_voucher, diem_su_dung, diem_tich_duoc, trang_thai, phuong_thuc_tt,
+         (ma_nguoi_dung, ma_code, tam_tinh, so_tien_giam, phi_van_chuyen, so_tien_giam_ship, tong_tien,
+          ma_voucher, ma_voucher_ship, diem_su_dung, diem_tich_duoc, trang_thai, phuong_thuc_tt,
           ten_nguoi_nhan, sdt_nguoi_nhan, dia_chi_giao_hang, ghi_chu)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'cho_xac_nhan', ?, ?, ?, ?, ?)`,
-      [req.user.id, ma_code, subtotal, discountAmount, phi_van_chuyen, tong_tien,
-       voucher_id || null, loyalty_points_used, pointsEarned, payment_method,
-       receiver_name, receiver_phone, shipping_address, note]
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'cho_xac_nhan', ?, ?, ?, ?, ?)`,
+      [req.user.id, ma_code, subtotal, productDiscount, phi_van_chuyen, shippingDiscount, tong_tien,
+       product_voucher_id || null, shipping_voucher_id || null, loyalty_points_used, pointsEarned,
+       payment_method, receiver_name, receiver_phone, shipping_address, note]
     );
     const orderId = orderResult.insertId;
 

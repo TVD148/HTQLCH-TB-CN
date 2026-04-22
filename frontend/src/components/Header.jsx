@@ -5,7 +5,7 @@ import { ShoppingCart, Heart, Bell, Search, Zap, User, LogOut, Package, Shield,
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { useTheme } from '../context/ThemeContext';
-import { categoryApi, notificationApi, wishlistApi } from '../api';
+import { categoryApi, notificationApi, wishlistApi, productApi } from '../api';
 
 export default function Header() {
   const { user, logout, isAdmin } = useAuth();
@@ -14,6 +14,9 @@ export default function Header() {
   const navigate = useNavigate();
 
   const [search, setSearch]       = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [showSearchDrop, setShowSearchDrop] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [notifCount, setNotifCount] = useState(0);
   const [notifications, setNotifications] = useState([]);
   const [showNotifMenu, setShowNotifMenu] = useState(false);
@@ -26,7 +29,9 @@ export default function Header() {
   const menuRef    = useRef(null);
   const catMenuRef = useRef(null);
   const notifMenuRef = useRef(null);
+  const searchRef  = useRef(null);
   const initialMount = useRef(true);
+  const searchTimer = useRef(null);
 
   // Scroll shadow
   useEffect(() => {
@@ -75,10 +80,27 @@ export default function Header() {
       if (menuRef.current && !menuRef.current.contains(e.target)) setShowUserMenu(false);
       if (catMenuRef.current && !catMenuRef.current.contains(e.target)) setShowCatMenu(false);
       if (notifMenuRef.current && !notifMenuRef.current.contains(e.target)) setShowNotifMenu(false);
+      if (searchRef.current && !searchRef.current.contains(e.target)) setShowSearchDrop(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
+
+  // Live search debounce
+  useEffect(() => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    if (!search.trim()) { setSearchResults([]); setShowSearchDrop(false); return; }
+    setSearchLoading(true);
+    searchTimer.current = setTimeout(async () => {
+      try {
+        const r = await productApi.getAll({ search: search.trim(), limit: 4 });
+        setSearchResults(r.data.data || []);
+        setShowSearchDrop(true);
+      } catch { setSearchResults([]); }
+      finally { setSearchLoading(false); }
+    }, 280);
+    return () => clearTimeout(searchTimer.current);
+  }, [search]);
 
   // Cart bounce
   useEffect(() => {
@@ -104,7 +126,21 @@ export default function Header() {
 
   const handleSearch = (e) => {
     e.preventDefault();
-    if (search.trim()) navigate(`/shop?search=${encodeURIComponent(search.trim())}`);
+    if (search.trim()) {
+      setShowSearchDrop(false);
+      navigate(`/shop?search=${encodeURIComponent(search.trim())}`);
+    }
+  };
+
+  const handleSearchSelect = (slug) => {
+    setShowSearchDrop(false);
+    setSearch('');
+    navigate(`/shop/${slug}`);
+  };
+
+  const handleViewAll = () => {
+    setShowSearchDrop(false);
+    navigate(`/shop?search=${encodeURIComponent(search.trim())}`);
   };
 
   const handleLogout = () => {
@@ -131,17 +167,71 @@ export default function Header() {
           </Link>
 
           {/* Search Bar */}
-          <form className="header-v2__search" onSubmit={handleSearch}>
-            <input
-              type="text"
-              placeholder="Tìm laptop, chuột, màn hình..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
-            <button type="submit" className="header-v2__search-btn">
-              <Search size={16} />
-            </button>
-          </form>
+          <div className="header-v2__search-wrap" ref={searchRef}>
+            <form className="header-v2__search" onSubmit={handleSearch}>
+              <input
+                type="text"
+                placeholder="Tìm laptop, chuột, màn hình..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                onFocus={() => search.trim() && searchResults.length > 0 && setShowSearchDrop(true)}
+                autoComplete="off"
+              />
+              <button type="submit" className="header-v2__search-btn">
+                <Search size={16} />
+              </button>
+            </form>
+
+            {/* Live Search Dropdown */}
+            {showSearchDrop && (
+              <div style={{
+                position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0,
+                background: 'var(--surface-1)', border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-md)', boxShadow: '0 8px 32px rgba(0,0,0,0.25)',
+                zIndex: 1000, overflow: 'hidden',
+              }}>
+                {searchLoading ? (
+                  <div style={{ padding: 16, textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Đang tìm...</div>
+                ) : searchResults.length === 0 ? (
+                  <div style={{ padding: 16, textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Không tìm thấy sản phẩm nào</div>
+                ) : (
+                  <>
+                    {searchResults.map(p => {
+                      const fmt = (n) => new Intl.NumberFormat('vi-VN').format(n) + '₫';
+                      return (
+                        <div
+                          key={p.id}
+                          onClick={() => handleSearchSelect(p.slug)}
+                          style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid var(--border)', transition: 'background 0.15s' }}
+                          onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2)'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                        >
+                          <img src={p.thumbnail} alt={p.name}
+                            style={{ width: 52, height: 40, objectFit: 'cover', borderRadius: 6, background: 'var(--surface-3)', flexShrink: 0 }}
+                            onError={e => { e.target.src = 'https://placehold.co/52x40/1E293B/3B82F6?text=IMG'; }} />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: 600, fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
+                              <span style={{ color: 'var(--accent)', fontWeight: 700, fontSize: '0.82rem' }}>{fmt(p.sale_price || p.price)}</span>
+                              {p.sale_price && <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textDecoration: 'line-through' }}>{fmt(p.price)}</span>}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <div
+                      onClick={handleViewAll}
+                      style={{ padding: '12px 14px', textAlign: 'center', fontSize: '0.85rem', color: 'var(--accent)', fontWeight: 600, cursor: 'pointer', transition: 'background 0.15s' }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                    >
+                      Xem tất cả
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Right Actions */}
           <div className="header-v2__actions">

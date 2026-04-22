@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ShoppingCart, Heart, BarChart2, Star } from 'lucide-react';
 import { productApi, wishlistApi } from '../api';
@@ -55,10 +55,11 @@ export default function ProductDetailPage() {
     <div className="section"><div className="container">
       {/* Breadcrumb */}
       <div style={{display:'flex',gap:8,fontSize:'0.82rem',color:'var(--text-muted)',marginBottom:24,flexWrap:'wrap',alignItems:'center'}}>
-        <Link to="/" style={{color:'var(--text-muted)',textDecoration:'none'}}>Trang chủ</Link>
-        <span style={{color:'var(--surface-3)'}}>/</span>
-        <Link to="/shop" style={{color:'var(--text-muted)',textDecoration:'none'}}>Sản phẩm</Link>
-        <span style={{color:'var(--surface-3)'}}>/</span>
+        <Link to="/" style={{color:'var(--text-muted)',textDecoration:'none'}}>Trang ch&#7911;</Link>
+        <span style={{color:'var(--surface-3)'}}>&#8250;</span>
+        <Link to="/shop" style={{color:'var(--text-muted)',textDecoration:'none'}}>S&#7843;n ph&#7849;m</Link>
+        {product.category_id && product.category_name && (<><span style={{color:'var(--surface-3)'}}>&#8250;</span><Link to={`/shop?category=${product.category_id}`} style={{color:'var(--text-muted)',textDecoration:'none'}}>{product.category_name}</Link></>)}
+        <span style={{color:'var(--surface-3)'}}>&#8250;</span>
         <span style={{color:'var(--text-primary)',fontWeight:600}}>{product.name}</span>
       </div>
 
@@ -229,3 +230,5 @@ export default function ProductDetailPage() {
     </div></div>
   );
 }
+
+

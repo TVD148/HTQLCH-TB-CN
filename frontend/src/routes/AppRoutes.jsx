@@ -13,7 +13,6 @@ import CartPage         from '../pages/CartPage';
 import CheckoutPage     from '../pages/CheckoutPage';
 import LoginPage        from '../pages/LoginPage';
 import RegisterPage     from '../pages/RegisterPage';
-import OrdersPage       from '../pages/OrdersPage';
 import OrderDetailPage  from '../pages/OrderDetailPage';
 import WishlistPage     from '../pages/WishlistPage';
 import ComparePage      from '../pages/ComparePage';
@@ -34,6 +33,8 @@ import AdminWarranty    from '../pages/admin/AdminWarranty';
 import AdminReports     from '../pages/admin/AdminReports';
 import AdminInventory   from '../pages/admin/AdminInventory';
 import AdminCategories  from '../pages/admin/AdminCategories';
+import AdminBrands      from '../pages/admin/AdminBrands';
+import AdminNotifications from '../pages/admin/AdminNotifications';
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -66,7 +67,7 @@ function AppRoutes() {
 
         {/* Protected User Routes */}
         <Route path="/checkout" element={<ProtectedRoute><CheckoutPage /></ProtectedRoute>} />
-        <Route path="/orders" element={<ProtectedRoute><OrdersPage /></ProtectedRoute>} />
+        <Route path="/orders" element={<Navigate to="/profile?tab=orders" replace />} />
         <Route path="/orders/:id" element={<ProtectedRoute><OrderDetailPage /></ProtectedRoute>} />
         <Route path="/wishlist" element={<ProtectedRoute><WishlistPage /></ProtectedRoute>} />
         <Route path="/warranty" element={<ProtectedRoute><WarrantyPage /></ProtectedRoute>} />
@@ -77,14 +78,16 @@ function AppRoutes() {
       {/* Admin */}
       <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
         <Route index element={<AdminDashboard />} />
-        <Route path="products"   element={<AdminProducts />} />
-        <Route path="orders"     element={<AdminOrders />} />
-        <Route path="vouchers"   element={<AdminVouchers />} />
-        <Route path="users"      element={<AdminUsers />} />
-        <Route path="warranty"   element={<AdminWarranty />} />
-        <Route path="reports"    element={<AdminReports />} />
-        <Route path="inventory"  element={<AdminInventory />} />
-        <Route path="categories" element={<AdminCategories />} />
+        <Route path="products"       element={<AdminProducts />} />
+        <Route path="orders"         element={<AdminOrders />} />
+        <Route path="vouchers"       element={<AdminVouchers />} />
+        <Route path="users"          element={<AdminUsers />} />
+        <Route path="warranty"       element={<AdminWarranty />} />
+        <Route path="reports"        element={<AdminReports />} />
+        <Route path="inventory"      element={<AdminInventory />} />
+        <Route path="categories"     element={<AdminCategories />} />
+        <Route path="brands"         element={<AdminBrands />} />
+        <Route path="notifications"  element={<AdminNotifications />} />
       </Route>
 
       <Route path="*" element={<NotFoundPage />} />
