@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ChevronRight, Shield, Truck, RefreshCw, Headphones, Star, ArrowRight,
          TrendingUp, Clock, Award, Zap, Ticket, X } from 'lucide-react';
-import { productApi, categoryApi, voucherApi } from '../api';
+import { productApi, categoryApi, voucherApi, wishlistApi } from '../api';
 import { useAuth } from '../context/AuthContext';
 import ProductCard from '../components/ProductCard';
 import toast from 'react-hot-toast';
@@ -58,6 +58,7 @@ export default function HomePage() {
   const navigate = useNavigate();
   const [infoVoucher, setInfoVoucher] = useState(null);
   const [claimedIds,   setClaimedIds] = useState(new Set());
+  const [wishlistIds,  setWishlistIds] = useState([]);
 
   // Load danh sách voucher đã nhận từ DB (persist sau reload)
   useEffect(() => {
@@ -69,6 +70,19 @@ export default function HomePage() {
       })
       .catch(() => {});
   }, [user]);
+
+  // Load wishlist
+  const loadWishlist = useCallback(() => {
+    if (!user) { setWishlistIds([]); return; }
+    wishlistApi.getAll().then(r => setWishlistIds(r.data.data.map(i => i.product_id))).catch(() => {});
+  }, [user]);
+
+  useEffect(() => { loadWishlist(); }, [loadWishlist]);
+
+  useEffect(() => {
+    window.addEventListener('wishlistChanged', loadWishlist);
+    return () => window.removeEventListener('wishlistChanged', loadWishlist);
+  }, [loadWishlist]);
 
   useEffect(() => {
     document.title = 'TechStore – Thiết bị công nghệ chính hãng';
@@ -389,7 +403,7 @@ export default function HomePage() {
                 <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: 24 }}>Không có sản phẩm đang sale</p>
               ) : (
                 <div className="products-grid">
-                  {flashProducts.map(p => <ProductCard key={p.id} product={p} />)}
+                  {flashProducts.map(p => <ProductCard key={p.id} product={p} wishlistIds={wishlistIds} />)}
                 </div>
               )}
             </div>
@@ -547,7 +561,7 @@ export default function HomePage() {
               </div>
               {/* 4 Products */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                {gamingProducts.slice(0, 4).map(p => <ProductCard key={p.id} product={p} />)}
+                {gamingProducts.slice(0, 4).map(p => <ProductCard key={p.id} product={p} wishlistIds={wishlistIds} />)}
               </div>
             </div>
 
@@ -576,7 +590,7 @@ export default function HomePage() {
               </div>
               {/* 4 Products */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                {officeProducts.slice(0, 4).map(p => <ProductCard key={p.id} product={p} />)}
+                {officeProducts.slice(0, 4).map(p => <ProductCard key={p.id} product={p} wishlistIds={wishlistIds} />)}
               </div>
             </div>
 
@@ -609,7 +623,7 @@ export default function HomePage() {
               <div className="spinner-wrap"><div className="spinner" /></div>
             ) : (
               <div className="product-tabs__grid">
-                {(tabProducts[activeTab] || []).map(p => <ProductCard key={p.id} product={p} />)}
+                {(tabProducts[activeTab] || []).map(p => <ProductCard key={p.id} product={p} wishlistIds={wishlistIds} />)}
                 {(tabProducts[activeTab] || []).length === 0 && !tabLoading && (
                   <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Đang tải...</p>
                 )}
