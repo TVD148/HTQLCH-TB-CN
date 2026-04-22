@@ -236,6 +236,9 @@ ul, ol { list-style: none; }
 .card--dropdown .card-body {
   overflow: visible !important;
 }
+.card--dropdown:hover {
+  transform: none !important; /* tránh dropdown bị lệch khi hover */
+}
 
 .card:hover {
   border-color: var(--border-hover);

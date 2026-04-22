@@ -431,6 +431,15 @@ router.delete('/flash-sale/:id/products/:pid', requireStaff, async (req, res, ne
   } catch (err) { next(err); }
 });
 
+// DELETE /api/admin/flash-sale/:id — Xóa cả flash sale
+router.delete('/flash-sale/:id', requireStaff, async (req, res, next) => {
+  try {
+    await db.query('DELETE FROM chi_tiet_flash_sale WHERE ma_flash_sale=?', [req.params.id]);
+    await db.query('DELETE FROM flash_sale WHERE ma_flash_sale=?', [req.params.id]);
+    res.json({ success: true, message: 'Đã xóa flash sale' });
+  } catch (err) { next(err); }
+});
+
 // ─── DANH GIA (REVIEWS) — Quản lý đầy đủ ───────────────────
 
 // GET /api/admin/reviews/all — Tất cả đánh giá
