@@ -1,10 +1,27 @@
 const db = require('../config/database');
 
-const generateOrderCode = () => {
-  const date = new Date().toISOString().slice(0,10).replace(/-/g,'');
-  const rand = Math.floor(Math.random() * 9000) + 1000;
-  return `DH-${date}-${rand}`;
+const generateOrderCode = async (conn) => {
+  const now = new Date();
+  // Format: DDMMYYYY (ví dụ 22042026)
+  const dd   = String(now.getDate()).padStart(2, '0');
+  const mm   = String(now.getMonth() + 1).padStart(2, '0');
+  const yyyy = now.getFullYear();
+  const datePart = `${dd}${mm}${yyyy}`;
+
+  // Đếm số đơn trong ngày hôm nay theo múi giờ +7
+  const todayStart = `${yyyy}-${mm}-${dd} 00:00:00`;
+  const todayEnd   = `${yyyy}-${mm}-${dd} 23:59:59`;
+
+  const [rows] = await conn.query(
+    `SELECT COUNT(*) AS cnt FROM don_hang
+     WHERE ngay_tao BETWEEN ? AND ?`,
+    [todayStart, todayEnd]
+  );
+
+  const stt = String((rows[0].cnt || 0) + 1).padStart(3, '0');
+  return `DH-${datePart}-${stt}`;
 };
+
 
 /** POST /api/orders */
 const createOrder = async (req, res, next) => {
@@ -122,7 +139,7 @@ const createOrder = async (req, res, next) => {
     const phi_van_chuyen = Math.max(0, shippingFee - shippingDiscount);
     const tong_tien = Math.max(0, subtotal - productDiscount - pointsDeduction + phi_van_chuyen);
     const pointsEarned = Math.floor(tong_tien / 100000); // 100K = 1 diem
-    const ma_code = generateOrderCode();
+    const ma_code = await generateOrderCode(conn);
 
 
     const [orderResult] = await conn.query(
@@ -160,10 +177,16 @@ const createOrder = async (req, res, next) => {
       );
     }
 
-    if (voucher_id && discountAmount > 0) {
+    if (product_voucher_id && productDiscount > 0) {
       await conn.query(
         'INSERT INTO lich_su_voucher (ma_voucher, ma_nguoi_dung, ma_don_hang, so_tien_giam) VALUES (?, ?, ?, ?)',
-        [voucher_id, req.user.id, orderId, discountAmount]
+        [product_voucher_id, req.user.id, orderId, productDiscount]
+      );
+    }
+    if (shipping_voucher_id && shippingDiscount > 0) {
+      await conn.query(
+        'INSERT INTO lich_su_voucher (ma_voucher, ma_nguoi_dung, ma_don_hang, so_tien_giam) VALUES (?, ?, ?, ?)',
+        [shipping_voucher_id, req.user.id, orderId, shippingDiscount]
       );
     }
 
@@ -193,7 +216,7 @@ const createOrder = async (req, res, next) => {
         order_id: orderId,
         order_code: ma_code,
         total_amount: tong_tien,
-        discount_amount: discountAmount,
+        discount_amount: productDiscount + shippingDiscount,
         loyalty_points_earned: pointsEarned,
       },
     });

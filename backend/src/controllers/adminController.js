@@ -211,26 +211,44 @@ const updateOrderStatus = async (req, res, next) => {
     const [orders] = await db.query('SELECT * FROM don_hang WHERE ma_don_hang = ?', [id]);
     if (!orders.length) return res.status(404).json({ success: false, message: 'Không tìm thấy đơn hàng' });
 
-    await db.query('UPDATE don_hang SET trang_thai = ? WHERE ma_don_hang = ?', [status, id]);
+    // Map trạng thái đơn → trạng thái thanh toán tự động
+    const paymentStatusMap = {
+      da_giao:  'da_tt',          // Đã giao  → Đã thanh toán
+      hoan_tien: 'da_hoan_tien',  // Hoàn tiền → Đã hoàn tiền
+      // Mọi trạng thái khác → Chưa thanh toán
+    };
+    const newPaymentStatus = paymentStatusMap[status] || 'chua_tt';
+
+    await db.query(
+      'UPDATE don_hang SET trang_thai = ?, trang_thai_tt = ? WHERE ma_don_hang = ?',
+      [status, newPaymentStatus, id]
+    );
 
     const statusLabels = {
-      da_xac_nhan: 'đã được xác nhận',
-      dang_giao:   'đang được vận chuyển',
-      da_giao:     'đã giao thành công',
-      da_huy:      'đã bị hủy',
+      cho_xac_nhan: 'đang chờ xác nhận',
+      da_xac_nhan:  'đã được xác nhận',
+      dang_giao:    'đang được vận chuyển',
+      da_giao:      'đã giao thành công',
+      da_huy:       'đã bị hủy',
+      hoan_tien:    'đã được hoàn tiền',
     };
 
+    // Gửi thông báo đến khách hàng
     if (statusLabels[status]) {
+      const extraMsg = status === 'da_giao'
+        ? ' Thanh toán đã được xác nhận. Cảm ơn bạn đã mua hàng! 🎉'
+        : '';
       await db.query(
         `INSERT INTO thong_bao (ma_nguoi_dung, tieu_de, noi_dung, loai, ma_tham_chieu)
          VALUES (?, ?, ?, ?, ?)`,
         [orders[0].ma_nguoi_dung,
          `Cập nhật đơn hàng #${orders[0].ma_code}`,
-         `Đơn hàng của bạn ${statusLabels[status]}.`,
+         `Đơn hàng của bạn ${statusLabels[status]}.${extraMsg}`,
          'don_hang', orders[0].ma_code]
       );
     }
 
+    // Cộng điểm tích lũy khi giao thành công
     if (status === 'da_giao' && orders[0].diem_tich_duoc > 0) {
       await db.query(
         'UPDATE nguoi_dung SET diem_tich_luy = diem_tich_luy + ? WHERE ma_nguoi_dung = ?',
