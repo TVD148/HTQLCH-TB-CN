@@ -2,6 +2,23 @@ const router = require('express').Router();
 const db = require('../config/database');
 const { verifyToken } = require('../middleware/auth');
 
+// GET /api/reviews/featured — 3 đánh giá 5 sao nổi bật cho HomePage (public)
+router.get('/featured', async (req, res, next) => {
+  try {
+    const [reviews] = await db.query(
+      `SELECT dg.so_sao AS rating, dg.binh_luan AS comment,
+              nd.ho_ten AS user_name,
+              sp.ten_san_pham AS product_name
+       FROM danh_gia dg
+       JOIN nguoi_dung nd ON nd.ma_nguoi_dung = dg.ma_nguoi_dung
+       JOIN san_pham sp   ON sp.ma_san_pham = dg.ma_san_pham
+       WHERE dg.da_duyet = 1 AND dg.so_sao >= 4 AND dg.binh_luan IS NOT NULL AND LENGTH(dg.binh_luan) > 20
+       ORDER BY dg.so_sao DESC, dg.ngay_tao DESC LIMIT 3`
+    );
+    res.json({ success: true, data: reviews });
+  } catch (err) { next(err); }
+});
+
 router.use(verifyToken);
 
 // POST /api/reviews — Gửi đánh giá sản phẩm

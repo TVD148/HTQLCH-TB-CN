@@ -6,6 +6,7 @@ import { productApi, categoryApi, voucherApi, wishlistApi } from '../api';
 import { useAuth } from '../context/AuthContext';
 import ProductCard from '../components/ProductCard';
 import toast from 'react-hot-toast';
+import axios from 'axios';
 
 const FEATURES = [
   { icon: <Shield size={22} />,    title: 'Hàng chính hãng',  desc: 'Bảo hành chính thức từ hãng 12-24 tháng', color: 'green' },
@@ -22,19 +23,20 @@ const TABS = [
 
 const fmt = (p) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(p);
 
-/* ── countdown helper ── */
-function useCountdown(initH = 5, initM = 59, initS = 59) {
-  const [t, setT] = useState({ h: initH, m: initM, s: initS });
+/* ── countdown helper — countdown đến thời điểm kết thúc flash sale ── */
+function useCountdown(endTime) {
+  const calc = () => {
+    if (!endTime) return { h: 0, m: 0, s: 0 };
+    const diff = Math.max(0, Math.floor((new Date(endTime) - Date.now()) / 1000));
+    return { h: Math.floor(diff / 3600), m: Math.floor((diff % 3600) / 60), s: diff % 60 };
+  };
+  const [t, setT] = useState(calc);
   useEffect(() => {
-    const id = setInterval(() => {
-      setT(prev => {
-        let { h, m, s } = prev;
-        s--; if (s < 0) { s = 59; m--; } if (m < 0) { m = 59; h--; } if (h < 0) { h = 5; m = 59; s = 59; }
-        return { h, m, s };
-      });
-    }, 1000);
+    if (!endTime) return;
+    setT(calc());
+    const id = setInterval(() => setT(calc()), 1000);
     return () => clearInterval(id);
-  }, []);
+  }, [endTime]);
   const pad = n => String(n).padStart(2, '0');
   return [pad(t.h), pad(t.m), pad(t.s)];
 }
@@ -53,12 +55,14 @@ export default function HomePage() {
   const [officeCatId,     setOfficeCatId]     = useState(null);
 
   const { user } = useAuth();
-  const [hH, hM, hS] = useCountdown(5, 59, 59);
+  const [flashEndTime,  setFlashEndTime]  = useState(null);
+  const [hH, hM, hS] = useCountdown(flashEndTime);
   const tabsRef  = useRef(null);
   const navigate = useNavigate();
   const [infoVoucher, setInfoVoucher] = useState(null);
   const [claimedIds,   setClaimedIds] = useState(new Set());
   const [wishlistIds,  setWishlistIds] = useState([]);
+  const [testimonials, setTestimonials] = useState([]);
 
   // Load danh sách voucher đã nhận từ DB (persist sau reload)
   useEffect(() => {
@@ -91,7 +95,11 @@ export default function HomePage() {
       productApi.getAll({ sort: 'price_desc', limit: 48 }),
       categoryApi.getAll(),
       voucherApi.getPublic().catch(() => ({ data: { data: [] } })),
-    ]).then(([prodRes, catRes, voucherRes]) => {
+      // Flash sale từ DB
+      axios.get('http://localhost:3001/api/admin/flash-sale').catch(() => ({ data: { data: [] } })),
+      // Testimonials từ DB
+      axios.get('http://localhost:3001/api/reviews/featured').catch(() => ({ data: { data: [] } })),
+    ]).then(([prodRes, catRes, voucherRes, flashRes, reviewRes]) => {
       const allProds = prodRes.data.data || [];
       const vouchers = voucherRes.data?.data || [];
       setPublicVouchers(vouchers);
@@ -102,8 +110,28 @@ export default function HomePage() {
         .sort((a, b) => ((b.price - b.sale_price) / b.price) - ((a.price - a.sale_price) / a.price));
       setHeroProducts(saleProds.slice(0, 3));
 
-      // Flash sale: top 4 giảm nhiều nhất
-      setFlashProducts(saleProds.slice(0, 4));
+      // Flash sale từ DB
+      const activeSale = (flashRes.data.data || []).find(fs => fs.is_active);
+      if (activeSale) {
+        setFlashEndTime(activeSale.end_time);
+        // Lấy sản phẩm flash sale từ DB
+        axios.get(`http://localhost:3001/api/admin/flash-sale/${activeSale.id}/products`)
+          .then(r => {
+            const flashProds = (r.data.data || []).map(item => ({
+              ...allProds.find(p => p.id === item.product_id) || {},
+              sale_price: item.flash_price,
+              id: item.product_id,
+            })).filter(p => p.id);
+            setFlashProducts(flashProds.slice(0, 4));
+          })
+          .catch(() => setFlashProducts(saleProds.slice(0, 4)));
+      } else {
+        setFlashProducts(saleProds.slice(0, 4));
+      }
+
+      // Testimonials từ DB
+      const dbReviews = reviewRes.data.data || [];
+      setTestimonials(dbReviews);
 
       // Category IDs
       const cats = catRes.data.data || [];
@@ -666,28 +694,27 @@ export default function HomePage() {
       </section>
 
       {/* ─── TESTIMONIALS ─────────────────────────────── */}
-      <section className="section-sm">
-        <div className="container">
-          <div style={{ textAlign: 'center', marginBottom: 28 }}>
-            <h2 className="section-title">Khách hàng nói gì về chúng tôi?</h2>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>
-            {[
-              { name: 'Nguyễn Văn An',  comment: 'Laptop ASUS ROG tuyệt vời, giao hàng nhanh, hàng chính hãng đúng như mô tả. Shop tư vấn nhiệt tình!', rating: 5 },
-              { name: 'Trần Thị Bình',  comment: 'Mua màn hình Samsung Odyssey G7, màu đẹp, cong rất thích. Sẽ ủng hộ TechStore lần sau.', rating: 5 },
-              { name: 'Lê Văn Cường',   comment: 'Giá tốt nhất thị trường, bảo hành rõ ràng, nhân viên hỗ trợ kỹ thuật rất giỏi.', rating: 4 },
-            ].map((r, i) => (
-              <div key={i} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: 20 }}>
-                <div className="stars" style={{ marginBottom: 10 }}>
-                  {[1,2,3,4,5].map(s => <Star key={s} size={14} fill={s <= r.rating ? 'var(--amber)' : 'none'} color={s <= r.rating ? 'var(--amber)' : 'var(--surface-3)'} />)}
+      {testimonials.length > 0 && (
+        <section className="section-sm">
+          <div className="container">
+            <div style={{ textAlign: 'center', marginBottom: 28 }}>
+              <h2 className="section-title">Khách hàng nói gì về chúng tôi?</h2>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 20 }}>
+              {testimonials.map((r, i) => (
+                <div key={i} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: 20 }}>
+                  <div className="stars" style={{ marginBottom: 10 }}>
+                    {[1,2,3,4,5].map(s => <Star key={s} size={14} fill={s <= r.rating ? 'var(--amber)' : 'none'} color={s <= r.rating ? 'var(--amber)' : 'var(--surface-3)'} />)}
+                  </div>
+                  <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 14, fontStyle: 'italic' }}>&ldquo;{r.comment}&rdquo;</p>
+                  <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>— {r.user_name}</div>
+                  {r.product_name && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 4 }}>🛒 {r.product_name}</div>}
                 </div>
-                <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 14, fontStyle: 'italic' }}>&ldquo;{r.comment}&rdquo;</p>
-                <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>— {r.name}</div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
     </div>
   );
 }

@@ -347,4 +347,137 @@ router.get('/notifications/broadcast', requireAdmin, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ─── FLASH SALE ───────────────────────────────────────────────
+
+// GET /api/admin/flash-sale — Lấy flash sale đang active
+router.get('/flash-sale', requireStaff, async (req, res, next) => {
+  try {
+    const [sales] = await db.query(
+      `SELECT fs.ma_flash_sale AS id, fs.ten AS name,
+              fs.thoi_gian_bat_dau AS start_time, fs.thoi_gian_ket_thuc AS end_time,
+              fs.trang_thai AS is_active,
+              COUNT(ctfs.ma_san_pham) AS product_count
+       FROM flash_sale fs
+       LEFT JOIN chi_tiet_flash_sale ctfs ON ctfs.ma_flash_sale = fs.ma_flash_sale
+       GROUP BY fs.ma_flash_sale ORDER BY fs.ngay_tao DESC`
+    );
+    res.json({ success: true, data: sales });
+  } catch (err) { next(err); }
+});
+
+// GET /api/admin/flash-sale/:id/products — Sản phẩm trong flash sale
+router.get('/flash-sale/:id/products', requireStaff, async (req, res, next) => {
+  try {
+    const [items] = await db.query(
+      `SELECT ctfs.ma_chi_tiet AS id, ctfs.gia_flash AS flash_price,
+              ctfs.so_luong_gioi_han AS qty_limit, ctfs.da_ban AS sold,
+              sp.ma_san_pham AS product_id, sp.ten_san_pham AS product_name,
+              sp.anh_dai_dien AS thumbnail, sp.gia_goc AS original_price,
+              sp.gia_khuyen_mai AS sale_price
+       FROM chi_tiet_flash_sale ctfs
+       JOIN san_pham sp ON sp.ma_san_pham = ctfs.ma_san_pham
+       WHERE ctfs.ma_flash_sale = ?`, [req.params.id]
+    );
+    res.json({ success: true, data: items });
+  } catch (err) { next(err); }
+});
+
+// POST /api/admin/flash-sale — Tạo chương trình flash sale
+router.post('/flash-sale', requireStaff, async (req, res, next) => {
+  try {
+    const { name, start_time, end_time } = req.body;
+    if (!start_time || !end_time) return res.status(400).json({ success: false, message: 'Thiếu thời gian' });
+    const [r] = await db.query(
+      'INSERT INTO flash_sale (ten, thoi_gian_bat_dau, thoi_gian_ket_thuc) VALUES (?, ?, ?)',
+      [name || 'Flash Sale', start_time, end_time]
+    );
+    res.status(201).json({ success: true, data: { id: r.insertId } });
+  } catch (err) { next(err); }
+});
+
+// PUT /api/admin/flash-sale/:id — Cập nhật flash sale
+router.put('/flash-sale/:id', requireStaff, async (req, res, next) => {
+  try {
+    const { name, start_time, end_time, is_active } = req.body;
+    await db.query(
+      'UPDATE flash_sale SET ten=?, thoi_gian_bat_dau=?, thoi_gian_ket_thuc=?, trang_thai=? WHERE ma_flash_sale=?',
+      [name, start_time, end_time, is_active ? 1 : 0, req.params.id]
+    );
+    res.json({ success: true, message: 'Đã cập nhật flash sale' });
+  } catch (err) { next(err); }
+});
+
+// POST /api/admin/flash-sale/:id/products — Thêm sản phẩm vào flash sale
+router.post('/flash-sale/:id/products', requireStaff, async (req, res, next) => {
+  try {
+    const { product_id, flash_price, qty_limit } = req.body;
+    if (!product_id || !flash_price) return res.status(400).json({ success: false, message: 'Thiếu thông tin' });
+    await db.query(
+      'INSERT INTO chi_tiet_flash_sale (ma_flash_sale, ma_san_pham, gia_flash, so_luong_gioi_han) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE gia_flash=VALUES(gia_flash), so_luong_gioi_han=VALUES(so_luong_gioi_han)',
+      [req.params.id, product_id, flash_price, qty_limit || null]
+    );
+    res.json({ success: true, message: 'Đã thêm sản phẩm vào flash sale' });
+  } catch (err) { next(err); }
+});
+
+// DELETE /api/admin/flash-sale/:id/products/:pid — Xóa sản phẩm khỏi flash sale
+router.delete('/flash-sale/:id/products/:pid', requireStaff, async (req, res, next) => {
+  try {
+    await db.query(
+      'DELETE FROM chi_tiet_flash_sale WHERE ma_flash_sale=? AND ma_san_pham=?',
+      [req.params.id, req.params.pid]
+    );
+    res.json({ success: true, message: 'Đã xóa sản phẩm khỏi flash sale' });
+  } catch (err) { next(err); }
+});
+
+// ─── DANH GIA (REVIEWS) — Quản lý đầy đủ ───────────────────
+
+// GET /api/admin/reviews/all — Tất cả đánh giá
+router.get('/reviews/all', requireStaff, async (req, res, next) => {
+  try {
+    const { status, page = 1, limit = 20 } = req.query;
+    const offset = (page - 1) * limit;
+    let where = 'WHERE 1=1';
+    const params = [];
+    if (status === 'approved')  { where += ' AND dg.da_duyet = 1'; }
+    if (status === 'pending')   { where += ' AND dg.da_duyet = 0'; }
+
+    const [reviews] = await db.query(
+      `SELECT dg.ma_danh_gia AS id, dg.so_sao AS rating, dg.binh_luan AS comment,
+              dg.da_duyet AS is_approved, dg.phan_hoi_admin AS admin_reply,
+              dg.ngay_tao AS created_at,
+              nd.ho_ten AS user_name, nd.anh_dai_dien AS user_avatar,
+              sp.ten_san_pham AS product_name, sp.duong_dan AS product_slug,
+              sp.anh_dai_dien AS product_thumbnail
+       FROM danh_gia dg
+       JOIN nguoi_dung nd ON nd.ma_nguoi_dung = dg.ma_nguoi_dung
+       JOIN san_pham sp   ON sp.ma_san_pham   = dg.ma_san_pham
+       ${where} ORDER BY dg.ngay_tao DESC LIMIT ? OFFSET ?`,
+      [...params, parseInt(limit), offset]
+    );
+    const [[{total}]] = await db.query(
+      `SELECT COUNT(*) AS total FROM danh_gia dg ${where}`, params
+    );
+    res.json({ success: true, data: reviews, total });
+  } catch (err) { next(err); }
+});
+
+// PATCH /api/admin/reviews/:id/toggle — Ẩn/hiện đánh giá
+router.patch('/reviews/:id/toggle', requireAdmin, async (req, res, next) => {
+  try {
+    const [rows] = await db.query('SELECT da_duyet FROM danh_gia WHERE ma_danh_gia = ?', [req.params.id]);
+    if (!rows.length) return res.status(404).json({ success: false, message: 'Không tìm thấy' });
+    const newStatus = rows[0].da_duyet ? 0 : 1;
+    await db.query('UPDATE danh_gia SET da_duyet = ? WHERE ma_danh_gia = ?', [newStatus, req.params.id]);
+    if (rows[0].ma_san_pham) {
+      await db.query(
+        `UPDATE san_pham SET danh_gia_tb = (SELECT AVG(so_sao) FROM danh_gia WHERE ma_san_pham = ? AND da_duyet = 1) WHERE ma_san_pham = ?`,
+        [rows[0].ma_san_pham, rows[0].ma_san_pham]
+      );
+    }
+    res.json({ success: true, message: newStatus ? 'Đã hiển thị đánh giá' : 'Đã ẩn đánh giá', is_approved: newStatus });
+  } catch (err) { next(err); }
+});
+
 module.exports = router;

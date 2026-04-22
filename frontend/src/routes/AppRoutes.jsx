@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
+
 // Layouts
 import MainLayout  from '../layouts/MainLayout';
 import AdminLayout from '../layouts/AdminLayout';
@@ -25,16 +26,18 @@ import MyVouchersPage   from '../pages/MyVouchersPage';
 
 // Admin Pages
 import AdminDashboard   from '../pages/admin/AdminDashboard';
-import AdminProducts    from '../pages/admin/AdminProducts';
-import AdminOrders      from '../pages/admin/AdminOrders';
-import AdminVouchers    from '../pages/admin/AdminVouchers';
-import AdminUsers       from '../pages/admin/AdminUsers';
-import AdminWarranty    from '../pages/admin/AdminWarranty';
-import AdminReports     from '../pages/admin/AdminReports';
-import AdminInventory   from '../pages/admin/AdminInventory';
-import AdminCategories  from '../pages/admin/AdminCategories';
-import AdminBrands      from '../pages/admin/AdminBrands';
+import AdminProducts      from '../pages/admin/AdminProducts';
+import AdminOrders        from '../pages/admin/AdminOrders';
+import AdminVouchers      from '../pages/admin/AdminVouchers';
+import AdminUsers         from '../pages/admin/AdminUsers';
+import AdminWarranty      from '../pages/admin/AdminWarranty';
+import AdminReports       from '../pages/admin/AdminReports';
+import AdminInventory     from '../pages/admin/AdminInventory';
+import AdminCategories    from '../pages/admin/AdminCategories';
+import AdminBrands        from '../pages/admin/AdminBrands';
 import AdminNotifications from '../pages/admin/AdminNotifications';
+import AdminReviews       from '../pages/admin/AdminReviews';
+import AdminFlashSale     from '../pages/admin/AdminFlashSale';
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -48,6 +51,13 @@ const AdminRoute = ({ children }) => {
   if (!user) return <Navigate to="/login" replace />;
   if (user.role !== 'admin' && user.role !== 'staff') return <Navigate to="/" replace />;
   return children;
+};
+
+// Redirect thông minh: admin → /admin/reports, staff → /admin/orders
+const AdminIndex = () => {
+  const { user } = useAuth();
+  if (user?.role === 'staff') return <Navigate to="/admin/orders" replace />;
+  return <Navigate to="/admin/reports" replace />;
 };
 
 function AppRoutes() {
@@ -77,7 +87,7 @@ function AppRoutes() {
 
       {/* Admin */}
       <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
-        <Route index element={<AdminDashboard />} />
+        <Route index element={<AdminIndex />} />
         <Route path="products"       element={<AdminProducts />} />
         <Route path="orders"         element={<AdminOrders />} />
         <Route path="vouchers"       element={<AdminVouchers />} />
@@ -88,6 +98,8 @@ function AppRoutes() {
         <Route path="categories"     element={<AdminCategories />} />
         <Route path="brands"         element={<AdminBrands />} />
         <Route path="notifications"  element={<AdminNotifications />} />
+        <Route path="reviews"        element={<AdminReviews />} />
+        <Route path="flash-sale"     element={<AdminFlashSale />} />
       </Route>
 
       <Route path="*" element={<NotFoundPage />} />

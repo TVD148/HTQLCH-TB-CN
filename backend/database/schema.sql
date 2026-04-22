@@ -349,7 +349,7 @@ CREATE TABLE thong_bao (
   ma_nguoi_dung   INT          NOT NULL,
   tieu_de         VARCHAR(200) NOT NULL,
   noi_dung        TEXT         NOT NULL,
-  loai            VARCHAR(50)  NULL COMMENT 'don_hang, bao_hanh, he_thong, khuyen_mai',
+  loai            VARCHAR(50)  NULL COMMENT 'don_hang, bao_hanh, he_thong, khuyen_mai, su_kien, danh_gia',
   da_doc          TINYINT(1)   NOT NULL DEFAULT 0,
   ma_tham_chieu   VARCHAR(50)  NULL,
   ngay_tao        TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -359,3 +359,99 @@ CREATE TABLE thong_bao (
   INDEX idx_ngay_tao   (ngay_tao)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   COMMENT='Thong bao gui den nguoi dung';
+
+-- ============================================================
+-- 18. BANG DIA CHI NGUOI DUNG (da them - migrate_addresses)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS dia_chi_nguoi_dung (
+  id              INT AUTO_INCREMENT PRIMARY KEY,
+  ma_nguoi_dung   INT          NOT NULL,
+  nhan            VARCHAR(100) NOT NULL DEFAULT 'Nhà',
+  dia_chi_day_du  TEXT         NOT NULL,
+  tinh_thanh      VARCHAR(100) NULL,
+  quan_huyen      VARCHAR(100) NULL,
+  phuong_xa       VARCHAR(100) NULL,
+  la_mac_dinh     TINYINT(1)   NOT NULL DEFAULT 0,
+  lat             DECIMAL(10,8) NULL,
+  lng             DECIMAL(11,8) NULL,
+  ngay_tao        TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (ma_nguoi_dung) REFERENCES nguoi_dung(ma_nguoi_dung) ON DELETE CASCADE,
+  INDEX idx_nguoi_dung (ma_nguoi_dung)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Nhieu dia chi giao hang cua nguoi dung';
+
+-- ============================================================
+-- 19. BANG VOUCHER NGUOI DUNG (rieng ca nhan)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS voucher_nguoi_dung (
+  ma_id           INT AUTO_INCREMENT PRIMARY KEY,
+  ma_voucher      INT          NOT NULL,
+  ma_nguoi_dung   INT          NOT NULL,
+  da_su_dung      TINYINT(1)   NOT NULL DEFAULT 0,
+  ngay_gui        TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (ma_voucher)    REFERENCES ma_giam_gia(ma_voucher)   ON DELETE CASCADE,
+  FOREIGN KEY (ma_nguoi_dung) REFERENCES nguoi_dung(ma_nguoi_dung) ON DELETE CASCADE,
+  UNIQUE KEY uq_voucher_user (ma_voucher, ma_nguoi_dung)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Voucher ca nhan duoc cap phat cho tung nguoi dung';
+
+-- ============================================================
+-- 20. BANG FLASH SALE
+-- ============================================================
+CREATE TABLE IF NOT EXISTS flash_sale (
+  ma_flash_sale   INT AUTO_INCREMENT PRIMARY KEY,
+  ten             VARCHAR(200) NOT NULL DEFAULT 'Flash Sale',
+  thoi_gian_bat_dau DATETIME   NOT NULL,
+  thoi_gian_ket_thuc DATETIME  NOT NULL,
+  trang_thai      TINYINT(1)   NOT NULL DEFAULT 1,
+  ngay_tao        TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Chuong trinh flash sale';
+
+CREATE TABLE IF NOT EXISTS chi_tiet_flash_sale (
+  ma_chi_tiet     INT AUTO_INCREMENT PRIMARY KEY,
+  ma_flash_sale   INT           NOT NULL,
+  ma_san_pham     INT           NOT NULL,
+  gia_flash       DECIMAL(15,2) NOT NULL,
+  so_luong_gioi_han INT         NULL COMMENT 'NULL = khong gioi han',
+  da_ban          INT           NOT NULL DEFAULT 0,
+  FOREIGN KEY (ma_flash_sale) REFERENCES flash_sale(ma_flash_sale) ON DELETE CASCADE,
+  FOREIGN KEY (ma_san_pham)   REFERENCES san_pham(ma_san_pham)     ON DELETE CASCADE,
+  UNIQUE KEY uq_flash_sp (ma_flash_sale, ma_san_pham)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='San pham tham gia flash sale';
+
+-- ============================================================
+-- ALTER: Them cot con thieu vao cac bang hien co
+-- ============================================================
+
+-- san_pham: phi van chuyen, specs
+ALTER TABLE san_pham
+  ADD COLUMN IF NOT EXISTS phi_van_chuyen DECIMAL(10,2) NOT NULL DEFAULT 30000 COMMENT 'Phi van chuyen mac dinh',
+  ADD COLUMN IF NOT EXISTS thoi_gian_bao_hanh INT NULL DEFAULT 12 COMMENT 'So thang bao hanh';
+
+-- ma_giam_gia: loai voucher
+ALTER TABLE ma_giam_gia
+  ADD COLUMN IF NOT EXISTS loai_voucher ENUM('product','shipping','promo_code') NOT NULL DEFAULT 'product' COMMENT 'Phan loai voucher';
+
+-- danh_gia: phan hoi admin
+ALTER TABLE danh_gia
+  ADD COLUMN IF NOT EXISTS phan_hoi_admin TEXT NULL AFTER binh_luan,
+  ADD COLUMN IF NOT EXISTS ngay_phan_hoi TIMESTAMP NULL AFTER phan_hoi_admin;
+
+-- don_hang: them cac truong bo sung
+ALTER TABLE don_hang
+  ADD COLUMN IF NOT EXISTS ma_voucher_ship INT NULL AFTER ma_voucher,
+  ADD COLUMN IF NOT EXISTS diem_tich_duoc INT NOT NULL DEFAULT 0 AFTER diem_su_dung,
+  ADD FOREIGN KEY IF NOT EXISTS fk_voucher_ship (ma_voucher_ship) REFERENCES ma_giam_gia(ma_voucher) ON DELETE SET NULL;
+
+-- yeu_cau_bao_hanh: hinh thuc + lich hen
+ALTER TABLE yeu_cau_bao_hanh
+  ADD COLUMN IF NOT EXISTS hinh_thuc ENUM('buu_dien','ship_ve','den_cua_hang') NOT NULL DEFAULT 'buu_dien' AFTER mo_ta_su_co,
+  ADD COLUMN IF NOT EXISTS so_dien_thoai VARCHAR(20) NULL AFTER hinh_thuc,
+  ADD COLUMN IF NOT EXISTS lich_hen DATETIME NULL AFTER so_dien_thoai;
+
+-- nguoi_dung: vai_tro bo sung
+ALTER TABLE nguoi_dung
+  MODIFY COLUMN vai_tro ENUM('admin','staff','khach_hang') NOT NULL DEFAULT 'khach_hang';
+

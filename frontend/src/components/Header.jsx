@@ -8,7 +8,7 @@ import { useTheme } from '../context/ThemeContext';
 import { categoryApi, notificationApi, wishlistApi, productApi } from '../api';
 
 export default function Header() {
-  const { user, logout, isAdmin } = useAuth();
+  const { user, logout, isAdmin, isStaff } = useAuth();
   const { cart } = useCart();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
@@ -315,7 +315,7 @@ export default function Header() {
                       { to: '/profile?tab=orders',    icon: <Package size={14} />,  label: 'Lịch sử đơn hàng' },
                       { to: '/profile?tab=reviews',   icon: <Star size={14} />,     label: 'Đánh giá đơn hàng' },
                       { to: '/profile?tab=vouchers',  icon: <Ticket size={14} />,   label: 'Voucher của tôi' },
-                      ...(isAdmin ? [{ to: '/admin', icon: null, label: '⚙️ Quản trị' }] : []),
+                      ...(isStaff ? [{ to: '/admin', icon: <Shield size={14}/>, label: user?.role === 'admin' ? '⚙️ Quản trị viên' : '🛠️ Trang nhân viên' }] : []),
                     ].map(item => (
                       <Link key={item.to} to={item.to} className="header-v2__dropdown-item"
                         onClick={() => setShowUserMenu(false)}>
