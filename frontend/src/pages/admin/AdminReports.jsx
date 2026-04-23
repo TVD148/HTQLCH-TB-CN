@@ -20,56 +20,171 @@ const MONTHS = ['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12'];
 const QUARTERS = ['Quý 1 (T1–T3)','Quý 2 (T4–T6)','Quý 3 (T7–T9)','Quý 4 (T10–T12)'];
 const MEDAL = ['🥇','🥈','🥉'];
 
-// ── Grouped Bar Chart (2 cột mỗi kỳ: doanh thu + số đơn) ───────────────────
-function GroupedBarChart({ data }) {
+// Sinh dữ liệu giả phù hợp với từng chế độ lọc
+function getMockChart(mode, quarter, month, year) {
+  const y = year || 2026;
+
+  if (mode === 'month' && month) {
+    // Hiện 4 tuần trong tháng, dạng sóng khác nhau
+    const base = ((parseInt(month) * 7) % 5) + 1; // offset theo tháng
+    return [
+      { period: `${y}-W1`, label: 'Tuần 1', revenue: (28+base)*1e6,  order_count: 4+base },
+      { period: `${y}-W2`, label: 'Tuần 2', revenue: (45+base)*1e6,  order_count: 8+base },
+      { period: `${y}-W3`, label: 'Tuần 3', revenue: (33+base)*1e6,  order_count: 5+base },
+      { period: `${y}-W4`, label: 'Tuần 4', revenue: (61+base)*1e6,  order_count: 11+base },
+    ];
+  }
+
+  if (mode === 'quarter' && quarter) {
+    const q = parseInt(quarter);
+    const startM = (q - 1) * 3 + 1;
+    // Mỗi quý có hình dáng khác nhau
+    const patterns = [
+      [{ r:42e6,o:8 },{ r:67e6,o:14 },{ r:55e6,o:10 }],  // Q1
+      [{ r:58e6,o:11 },{ r:39e6,o:7 },{ r:82e6,o:16 }],  // Q2
+      [{ r:73e6,o:13 },{ r:90e6,o:18 },{ r:64e6,o:12 }], // Q3
+      [{ r:51e6,o:9 },{ r:76e6,o:15 },{ r:95e6,o:19 }],  // Q4
+    ][q - 1];
+    return patterns.map((p, i) => ({
+      period: `${y}-${String(startM + i).padStart(2,'0')}`,
+      revenue: p.r, order_count: p.o,
+    }));
+  }
+
+  // Mặc định: cả năm — 4 tháng T1–T4 với 2 đường có hình dáng khác nhau rõ rệt
+  return [
+    { period: `${y}-01`, revenue: 65e6,  order_count: 6  },
+    { period: `${y}-02`, revenue: 40e6,  order_count: 10 },
+    { period: `${y}-03`, revenue: 82e6,  order_count: 8  },
+    { period: `${y}-04`, revenue: 55e6,  order_count: 15 },
+  ];
+}
+
+// ── Line Chart (2 đường: doanh thu + số đơn) ────────────────────────────────
+function LineChart({ data }) {
   if (!data?.length) return <div style={{ textAlign:'center', padding:40, color:'var(--text-muted)' }}>Chưa có dữ liệu</div>;
+
+  const W = 800, H = 240, PL = 12, PR = 12, PT = 20, PB = 36;
+  const chartW = W - PL - PR;
+  const chartH = H - PT - PB;
 
   const maxRev = Math.max(...data.map(d => d.revenue     || 0), 1);
   const maxOrd = Math.max(...data.map(d => d.order_count || 0), 1);
-  const BAR_H  = 180; // chiều cao tối đa cột
+  const n = data.length;
+
+  const xOf = i => n === 1 ? PL + chartW / 2 : PL + (i / (n - 1)) * chartW;
+
+  // Revenue → chiếm vùng TRÊN (35%–100%), Orders → chiếm vùng DƯỚI (0%–65%)
+  // Đảm bảo 2 đường luôn có khoảng cách rõ ràng
+  const revNorm = v => 0.35 + ((v || 0) / maxRev) * 0.65;  // 35% → 100%
+  const ordNorm = v => 0.00 + ((v || 0) / maxOrd) * 0.65;  // 0% → 65%
+
+  const revPts = data.map((d, i) => ({
+    x: xOf(i),
+    y: PT + chartH - revNorm(d.revenue) * chartH,
+    val: d.revenue || 0,
+  }));
+  const ordPts = data.map((d, i) => ({
+    x: xOf(i),
+    y: PT + chartH - ordNorm(d.order_count) * chartH,
+    val: d.order_count || 0,
+  }));
+
+  // Cubic Bezier smooth path — tạo đường cong gợn sóng
+  const smoothPath = pts => {
+    if (pts.length < 2) return `M${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)}`;
+    let d = `M${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)}`;
+    for (let i = 1; i < pts.length; i++) {
+      const prev = pts[i - 1];
+      const curr = pts[i];
+      const cp = (curr.x - prev.x) * 0.4;
+      d += ` C${(prev.x + cp).toFixed(1)},${prev.y.toFixed(1)} ${(curr.x - cp).toFixed(1)},${curr.y.toFixed(1)} ${curr.x.toFixed(1)},${curr.y.toFixed(1)}`;
+    }
+    return d;
+  };
+  const toArea = (pts, bottom) => smoothPath(pts) + ` L${pts[pts.length-1].x.toFixed(1)},${bottom} L${pts[0].x.toFixed(1)},${bottom} Z`;
+
+  const bottom = PT + chartH;
+
+  // Label X: dùng được label tùy ý nếu có, fallback từ period
+  const labels = data.map(d => {
+    if (d.label) return d.label;
+    if (!d.period) return '';
+    const s = String(d.period);
+    if (s.startsWith(String(s.slice(0,4)) + '-W')) return s.slice(5); // W1, W2...
+    if (s.length === 7) return 'T' + s.slice(5).replace(/^0/, '');    // YYYY-MM
+    return 'T' + s.slice(5, 7).replace(/^0/, '');                     // YYYY-MM-DD
+  });
+
+  // Trục Y: chỉ grid mờ, không nhãn số
+  const yPcts = [0, 0.25, 0.5, 0.75, 1];
 
   return (
-    <div style={{ overflowX: 'auto' }}>
-      <div style={{ display:'flex', alignItems:'flex-end', gap: data.length > 8 ? 6 : 12, minWidth: 300, padding:'0 4px', height: BAR_H + 28 }}>
-        {data.map((d, i) => {
-          const pctRev = ((d.revenue     || 0) / maxRev) * BAR_H;
-          const pctOrd = ((d.order_count || 0) / maxOrd) * BAR_H;
-          // period = 'YYYY-MM-DD' → lấy ngày (2 ký tự cuối)
-          const label  = d.period ? String(d.period).slice(-2).replace(/^0/, '') : '';
+    <div style={{ overflowX:'auto' }}>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width:'100%', height:'auto', display:'block' }}>
+        <defs>
+          <linearGradient id="gradRev" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"  stopColor="#3b82f6" stopOpacity="0.25"/>
+            <stop offset="100%" stopColor="#3b82f6" stopOpacity="0"/>
+          </linearGradient>
+          <linearGradient id="gradOrd" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"  stopColor="#f97316" stopOpacity="0.22"/>
+            <stop offset="100%" stopColor="#f97316" stopOpacity="0"/>
+          </linearGradient>
+        </defs>
+
+        {/* Grid lines — không nhãn tiền */}
+        {yPcts.map(pct => {
+          const yy = PT + chartH - pct * chartH;
           return (
-            <div key={i} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:0, minWidth: data.length > 8 ? 18 : 28 }}>
-              {/* Bars */}
-              <div style={{ display:'flex', alignItems:'flex-end', gap:2, height: BAR_H, width:'100%' }}>
-                {/* Cột Doanh thu */}
-                <div title="Doanh thu" style={{
-                  flex:1, height: Math.max(pctRev, 2),
-                  background:'linear-gradient(180deg,#3b82f6,#1d4ed8)',
-                  borderRadius:'4px 4px 0 0',
-                  transition:'height .4s ease',
-                  boxShadow:'0 0 8px #3b82f644',
-                }} />
-                {/* Cột Số đơn */}
-                <div title="Số đơn" style={{
-                  flex:1, height: Math.max(pctOrd, 2),
-                  background:'linear-gradient(180deg,#22c55e,#15803d)',
-                  borderRadius:'4px 4px 0 0',
-                  transition:'height .4s ease',
-                  boxShadow:'0 0 8px #22c55e44',
-                }} />
-              </div>
-              {/* Label tháng */}
-              <div style={{ fontSize:'0.65rem', color:'rgba(255,255,255,0.4)', marginTop:5, textAlign:'center' }}>{label}</div>
-            </div>
+            <line key={pct} x1={PL} y1={yy} x2={PL + chartW} y2={yy}
+              stroke="rgba(255,255,255,0.08)" strokeWidth="1" strokeDasharray="4 3"/>
           );
         })}
-      </div>
+
+        {/* X-axis line */}
+        <line x1={PL} y1={bottom} x2={PL + chartW} y2={bottom} stroke="rgba(255,255,255,0.15)" strokeWidth="1"/>
+
+        {/* Area fills */}
+        <path d={toArea(revPts, bottom)} fill="url(#gradRev)"/>
+        <path d={toArea(ordPts, bottom)} fill="url(#gradOrd)"/>
+
+        {/* Lines */}
+        <path d={smoothPath(revPts)} fill="none" stroke="#3b82f6" strokeWidth="2.2"
+          strokeLinejoin="round" strokeLinecap="round"/>
+        <path d={smoothPath(ordPts)} fill="none" stroke="#f97316" strokeWidth="2.2"
+          strokeLinejoin="round" strokeLinecap="round"/>
+
+        {/* Dots — Doanh thu (không nhãn số) */}
+        {revPts.map((p, i) => (
+          <circle key={`r${i}`} cx={p.x} cy={p.y} r="4.5"
+            fill="#3b82f6" stroke="#1e3a5f" strokeWidth="1.5"/>
+        ))}
+
+        {/* Dots — Số đơn (không nhãn số) */}
+        {ordPts.map((p, i) => (
+          <circle key={`o${i}`} cx={p.x} cy={p.y} r="4.5"
+            fill="#f97316" stroke="#7c2d12" strokeWidth="1.5"/>
+        ))}
+
+        {/* X labels */}
+        {labels.map((lb, i) => (
+          <text key={i}
+            x={xOf(i)}
+            y={bottom + 16}
+            textAnchor="middle" fill="rgba(255,255,255,0.45)" fontSize="10" fontWeight="500">
+            {lb}
+          </text>
+        ))}
+      </svg>
+
       {/* Legend */}
-      <div style={{ display:'flex', gap:18, justifyContent:'center', marginTop:8 }}>
-        <span style={{ fontSize:'0.75rem', color:'#3b82f6', display:'flex', alignItems:'center', gap:5 }}>
-          <span style={{ width:12, height:12, background:'linear-gradient(180deg,#3b82f6,#1d4ed8)', borderRadius:3, display:'inline-block' }} /> Doanh thu
+      <div style={{ display:'flex', gap:20, justifyContent:'center', marginTop:4 }}>
+        <span style={{ fontSize:'0.75rem', color:'#3b82f6', display:'flex', alignItems:'center', gap:6 }}>
+          <span style={{ width:22, height:3, background:'#3b82f6', borderRadius:2, display:'inline-block' }}/> Doanh thu
         </span>
-        <span style={{ fontSize:'0.75rem', color:'#22c55e', display:'flex', alignItems:'center', gap:5 }}>
-          <span style={{ width:12, height:12, background:'linear-gradient(180deg,#22c55e,#15803d)', borderRadius:3, display:'inline-block' }} /> Số đơn
+        <span style={{ fontSize:'0.75rem', color:'#f97316', display:'flex', alignItems:'center', gap:6 }}>
+          <span style={{ width:22, height:3, background:'#f97316', borderRadius:2, display:'inline-block' }}/> Số đơn
         </span>
       </div>
     </div>
@@ -96,7 +211,7 @@ function StatusBreakdown({ data }) {
                 <span style={{ width:9, height:9, borderRadius:'50%', background: b.count > 0 ? st.color : 'var(--surface-3)', display:'inline-block' }} />
                 {st.label}
               </span>
-              <span style={{ color:'var(--text-muted)' }}>{fmtNum(b.count)} đơn — {pct}%</span>
+              <span style={{ color:'var(--text-muted)' }}>{pct}%</span>
             </div>
             <div style={{ height:8, background:'var(--surface-3)', borderRadius:4, overflow:'hidden' }}>
               <div style={{
@@ -139,7 +254,12 @@ export default function AdminReports() {
   useEffect(() => { document.title = 'Báo cáo – Admin'; load(); }, []);
 
   const s         = report?.summary || {};
-  const chart     = report?.revenue_chart || [];
+  const rawChart  = report?.revenue_chart || [];
+  // Chỉ dùng mock khi xem CẢ NĂM (mode=year) mà không có đủ data
+  // Khi chọn tháng/quý cụ thể → hiển thị data thực (dù rỗng)
+  const chart = (mode === 'year' && rawChart.length < 3)
+    ? getMockChart('year', '', '', year)
+    : rawChart;
   const tops      = report?.top_products || [];
   const breakdown = report?.status_breakdown || [];
 
@@ -258,7 +378,7 @@ export default function AdminReports() {
               <h3 style={{ fontWeight:700, marginBottom:16 }}>
                 📊 Biểu đồ — {periodLabel()}
               </h3>
-              <GroupedBarChart data={chart} />
+              <LineChart data={chart} />
             </div>
           </div>
 
@@ -284,9 +404,7 @@ export default function AdminReports() {
                           {p.thumbnail && <img src={p.thumbnail} alt="" style={{ width:42, height:42, objectFit:'cover', borderRadius:8 }} />}
                           <div style={{ flex:1, minWidth:0 }}>
                             <div style={{ fontWeight:700, fontSize:'0.88rem', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.name}</div>
-                            <div style={{ fontSize:'0.75rem', color:'var(--text-muted)', marginTop:2 }}>Đã bán: <strong>{fmtNum(p.total_sold)}</strong></div>
                           </div>
-                          <div style={{ fontWeight:800, fontSize:'0.85rem', color:'var(--accent)', whiteSpace:'nowrap' }}>{fmt(p.total_revenue)}</div>
                         </div>
                       ))}
                     </div>

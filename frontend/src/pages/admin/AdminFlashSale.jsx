@@ -52,8 +52,19 @@ export default function AdminFlashSale() {
   const searchRef = useRef(null);
 
   const loadSales = async () => {
-    try { const r = await axios.get(`${API}/admin/flash-sale`, getAuth()); setSales(r.data.data || []); }
-    catch { toast.error('Lỗi tải flash sale'); }
+    try {
+      const r = await axios.get(`${API}/admin/flash-sale`, getAuth());
+      const list = r.data.data || [];
+      setSales(list);
+      // Khôi phục flash sale đang chọn từ sessionStorage (sau khi đăng xuất/vào lại)
+      setSelected(prev => {
+        const savedId = sessionStorage.getItem('admin_flash_selected_id');
+        const targetId = prev?.id ?? (savedId ? parseInt(savedId) : null);
+        if (!targetId) return null;
+        const found = list.find(s => s.id === targetId);
+        return found || null;
+      });
+    } catch { toast.error('Lỗi tải flash sale'); }
   };
   const loadProducts = async (id) => {
     setLoading(true);
@@ -67,7 +78,15 @@ export default function AdminFlashSale() {
   };
 
   useEffect(() => { loadSales(); loadAllProducts(); }, []);
-  useEffect(() => { if (selected) loadProducts(selected.id); }, [selected]);
+  // Khi selected thay đổi, lưu id vào sessionStorage và load sản phẩm
+  useEffect(() => {
+    if (selected) {
+      sessionStorage.setItem('admin_flash_selected_id', String(selected.id));
+      loadProducts(selected.id);
+    } else {
+      sessionStorage.removeItem('admin_flash_selected_id');
+    }
+  }, [selected?.id]);
 
   // Close dropdown on outside click
   useEffect(() => {
