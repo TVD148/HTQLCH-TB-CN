@@ -1,6 +1,6 @@
 @startuml 03_class_diagram
 !theme cerulean-outline
-title Sơ đồ Lớp (Class Diagram)\nHệ thống Quản lý Cửa hàng Thiết bị Công nghệ
+title Sơ đồ Lớp (Class Diagram)\nHệ thống Quản lý Cửa hàng Thiết bị Công nghệ\nPhiên bản: 2.0 — Đồng bộ với code thực tế
 
 skinparam classAttributeIconSize 0
 skinparam class {
@@ -23,18 +23,20 @@ class NguoiDung {
   +String ten
   +String email
   +String mat_khau_ma_hoa
-  +Enum vai_tro <<admin|staff|user>>
+  +Enum vai_tro <<admin|staff|khach_hang>>
   +String so_dien_thoai
   +Text dia_chi
   +String anh_dai_dien
   +int diem_tich_luy
   +Boolean trang_thai
-  +DateTime ngay_tao
+  +Timestamp ngay_xac_thuc_email
+  +Timestamp ngay_tao
+  +Timestamp ngay_cap_nhat
   --
   +dangKy() : NguoiDung
   +dangNhap() : Token
   +dangXuat() : void
-  +capNhatHoSo(ho, ten_dem, ten, phone) : NguoiDung
+  +capNhatHoSo() : NguoiDung
   +doiMatKhau() : Boolean
   +layDonHang() : DonHang[]
   +layYeuThich() : SanPham[]
@@ -53,6 +55,7 @@ class DiaChiNguoiDung {
   +Decimal lat
   +Decimal lng
   +Boolean la_mac_dinh
+  +Timestamp ngay_tao
   --
   +them() : DiaChiNguoiDung
   +sua() : DiaChiNguoiDung
@@ -60,16 +63,17 @@ class DiaChiNguoiDung {
   +datMacDinh() : void
 }
 
-'============ SẢN PHẨM ============
+'============ DANH MỤC & THƯƠNG HIỆU ============
 class DanhMuc {
   +int ma_danh_muc
   +String ten_danh_muc
   +String duong_dan
   +Text mo_ta
   +String hinh_anh
-  +int ma_cha
+  +int ma_danh_muc_cha
   +Boolean trang_thai
   +int thu_tu
+  +Timestamp ngay_tao
   --
   +them() : DanhMuc
   +sua() : DanhMuc
@@ -83,14 +87,17 @@ class ThuongHieu {
   +String ten_thuong_hieu
   +String duong_dan
   +String logo
-  +String xuat_xu
+  +String quoc_gia
   +Boolean trang_thai
+  +Timestamp ngay_tao
   --
   +them() : ThuongHieu
   +sua() : ThuongHieu
+  +xoa() : Boolean
   +laySanPham() : SanPham[]
 }
 
+'============ SẢN PHẨM ============
 class SanPham {
   +int ma_san_pham
   +String ten_san_pham
@@ -110,16 +117,19 @@ class SanPham {
   +Decimal danh_gia_tb
   +int thoi_gian_bao_hanh
   +Decimal phi_van_chuyen
+  +Timestamp ngay_tao
+  +Timestamp ngay_cap_nhat
   --
   +them() : SanPham
   +sua() : SanPham
-  +xoa() : Boolean
+  +an() : Boolean
   +timKiem(tuKhoa: String) : SanPham[]
   +loc(params: Object) : SanPham[]
   +capNhatTonKho(sl: int, loai: String) : void
   +layThongSo() : ThongSoKyThuat[]
   +layAnh() : AnhSanPham[]
   +layDanhGia() : DanhGia[]
+  +laySanPhamLienQuan() : SanPham[]
 }
 
 class ThongSoKyThuat {
@@ -130,14 +140,14 @@ class ThongSoKyThuat {
   +String don_vi
   +int thu_tu
   --
-  +them() : void
   +themHangLoat(specs: Array) : void
+  +xoaTheoSanPham(maSP: int) : void
 }
 
 class AnhSanPham {
   +int ma_anh
   +int ma_san_pham
-  +String url_anh
+  +String duong_dan_anh
   +Boolean la_anh_chinh
   +int thu_tu
   --
@@ -149,17 +159,19 @@ class YeuThich {
   +int ma_yeu_thich
   +int ma_nguoi_dung
   +int ma_san_pham
-  +DateTime ngay_them
+  +Timestamp ngay_them
   --
   +them() : YeuThich
   +xoa() : Boolean
+  +kiemTraTonTai(userId, spId) : Boolean
 }
 
-'============ GIỎ HÀNG & ĐẶT HÀNG ============
+'============ GIỎ HÀNG ============
 class GioHang {
   +int ma_gio_hang
   +int ma_nguoi_dung
-  +DateTime ngay_tao
+  +Timestamp ngay_tao
+  +Timestamp ngay_cap_nhat
   --
   +themSanPham(maSP: int, sl: int) : ChiTietGioHang
   +xoaSanPham(maChiTiet: int) : Boolean
@@ -175,11 +187,12 @@ class ChiTietGioHang {
   +int ma_san_pham
   +int so_luong
   +Decimal don_gia
-  +DateTime ngay_them
+  +Timestamp ngay_them
   --
   +tinhThanhTien() : Decimal
 }
 
+'============ ĐƠN HÀNG ============
 class DonHang {
   +int ma_don_hang
   +int ma_nguoi_dung
@@ -200,6 +213,8 @@ class DonHang {
   +String sdt_nguoi_nhan
   +Text dia_chi_giao_hang
   +Text ghi_chu
+  +Timestamp ngay_tao
+  +Timestamp ngay_cap_nhat
   --
   +tao() : DonHang
   +capNhatTrangThai(tt: String) : void
@@ -207,6 +222,7 @@ class DonHang {
   +tinhTong() : Decimal
   +layChiTiet() : ChiTietDonHang[]
   +taoMaCode() : String
+  +guiThongBao(tt: String) : void
 }
 
 class ChiTietDonHang {
@@ -222,7 +238,7 @@ class ChiTietDonHang {
   +tinhThanhTien() : Decimal
 }
 
-'============ VOUCHER & KHUYẾN MÃI ============
+'============ VOUCHER ============
 class MaGiamGia {
   +int ma_voucher
   +String ma_code
@@ -232,11 +248,14 @@ class MaGiamGia {
   +Decimal gia_tri_giam
   +Decimal giam_toi_da
   +Decimal don_hang_toi_thieu
-  +int gioi_han_su_dung
+  +int so_lan_toi_da
   +int da_su_dung
+  +int gioi_han_moi_nguoi
   +Enum loai_voucher <<product|shipping|promo_code>>
   +Boolean trang_thai
-  +DateTime het_han
+  +DateTime ngay_bat_dau
+  +DateTime ngay_het_han
+  +DateTime ngay_tao
   --
   +kiemTraHopLe(userId: int, giaTriDon: Decimal) : Boolean
   +apDung(giaTriDon: Decimal) : Decimal
@@ -245,14 +264,15 @@ class MaGiamGia {
 }
 
 class VoucherNguoiDung {
-  +int ma
+  +int ma_id
   +int ma_voucher
   +int ma_nguoi_dung
   +Boolean da_su_dung
-  +DateTime ngay_su_dung
-  +DateTime ngay_cap
+  +Timestamp ngay_gui
+  +Timestamp ngay_su_dung
   --
-  +ghiNhan() : void
+  +capPhat(userId: int) : void
+  +danhDauDaDung() : void
 }
 
 class LichSuVoucher {
@@ -261,7 +281,7 @@ class LichSuVoucher {
   +int ma_nguoi_dung
   +int ma_don_hang
   +Decimal so_tien_giam
-  +DateTime ngay_su_dung
+  +Timestamp ngay_su_dung
   --
   +ghiNhan() : void
 }
@@ -276,15 +296,16 @@ class YeuCauBaoHanh {
   +Enum hinh_thuc <<buu_dien|ship_ve|den_cua_hang>>
   +String so_dien_thoai
   +DateTime lich_hen
-  +Enum trang_thai <<cho_xu_ly|dang_xu_ly|hoan_thanh|tu_choi>>
+  +Enum trang_thai <<cho_xu_ly|da_tiep_nhan|dang_xu_ly|hoan_thanh|tu_choi>>
   +int ma_nhan_vien_xu_ly
   +Text ghi_chu_xu_ly
   +DateTime ngay_tiep_nhan
   +DateTime ngay_hoan_thanh
   --
   +tao() : YeuCauBaoHanh
-  +capNhatTrangThai() : void
+  +capNhatTrangThai(tt: String, ghiChu: String) : void
   +ganNhanVien(maNV: int) : void
+  +guiThongBao() : void
 }
 
 '============ ĐÁNH GIÁ ============
@@ -295,15 +316,16 @@ class DanhGia {
   +int ma_chi_tiet_dh
   +int so_sao
   +Text binh_luan
-  +Enum trang_thai <<cho_duyet|da_duyet|tu_choi>>
   +Text phan_hoi_admin
-  +DateTime ngay_phan_hoi
-  +DateTime ngay_tao
+  +Timestamp ngay_phan_hoi
+  +Boolean da_duyet
+  +Timestamp ngay_tao
   --
   +tao() : DanhGia
   +duyet() : void
-  +tuChoi() : void
+  +an() : void
   +phanHoi(noiDung: String) : void
+  +capNhatDanhGiaTB(maSP: int) : void
 }
 
 '============ KHO HÀNG ============
@@ -317,10 +339,10 @@ class LichSuKho {
   +Enum loai_giao_dich <<nhap|xuat|dieu_chinh|hoan_tra>>
   +Text ghi_chu
   +String ma_tham_chieu
-  +DateTime ngay_tao
+  +Timestamp ngay_tao
   --
-  +ghiNhapKho(sl: int) : void
-  +ghiXuatKho(sl: int) : void
+  +ghiNhap(sl: int, ghiChu: String) : void
+  +ghiXuat(sl: int, maDH: String) : void
   +ghiDieuChinh(sl: int) : void
 }
 
@@ -333,62 +355,80 @@ class ThongBao {
   +String loai
   +Boolean da_doc
   +String ma_tham_chieu
-  +DateTime ngay_tao
+  +Timestamp ngay_tao
   --
-  +gui() : void
+  +gui(userId: int) : void
+  +guiChoTatCa() : void
   +danhDauDaDoc() : void
-  +danhDauTatCaDaDoc() : void
+  +danhDauTatCaDaDoc(userId: int) : void
 }
 
 '============ FLASH SALE ============
 class FlashSale {
   +int ma_flash_sale
   +String ten
-  +DateTime ngay_bat_dau
-  +DateTime ngay_ket_thuc
+  +DateTime thoi_gian_bat_dau
+  +DateTime thoi_gian_ket_thuc
   +Boolean trang_thai
+  +Timestamp ngay_tao
   --
   +tao() : FlashSale
-  +themSanPham(maSP: int, gia: Decimal) : void
-  +kiemTraHoatDong() : Boolean
+  +capNhat() : FlashSale
+  +xoa() : void
+  +batTat(trangThai: Boolean) : void
+  +kiemTraDangChay() : Boolean
+  +layDanhSachSanPham() : ChiTietFlashSale[]
+}
+
+class ChiTietFlashSale {
+  +int ma_chi_tiet
+  +int ma_flash_sale
+  +int ma_san_pham
+  +Decimal gia_flash
+  +int so_luong_gioi_han
+  +int da_ban
+  --
+  +them(maSP: int, gia: Decimal) : void
+  +xoa(maSP: int) : void
 }
 
 '============ RELATIONSHIPS ============
-NguoiDung "1" --o{ DonHang : "đặt"
-NguoiDung "1" --|| GioHang : "có"
-NguoiDung "1" --o{ DanhGia : "viết"
-NguoiDung "1" --o{ YeuThich : "lưu"
-NguoiDung "1" --o{ YeuCauBaoHanh : "yêu cầu"
-NguoiDung "1" --o{ ThongBao : "nhận"
-NguoiDung "1" --o{ VoucherNguoiDung : "có"
-NguoiDung "1" --o{ LichSuVoucher : "sử dụng"
-NguoiDung "1" --o{ DiaChiNguoiDung : "lưu"
+NguoiDung "1" --o{ DonHang         : "đặt"
+NguoiDung "1" --|| GioHang         : "có 1"
+NguoiDung "1" --o{ DanhGia         : "viết"
+NguoiDung "1" --o{ YeuThich        : "lưu"
+NguoiDung "1" --o{ YeuCauBaoHanh   : "yêu cầu"
+NguoiDung "1" --o{ ThongBao        : "nhận"
+NguoiDung "1" --o{ VoucherNguoiDung: "sở hữu"
+NguoiDung "1" --o{ LichSuVoucher   : "sử dụng"
+NguoiDung "1" --o{ DiaChiNguoiDung : "lưu địa chỉ"
 
-DonHang "1" *--{ ChiTietDonHang : "chứa"
-DonHang "1" --o| MaGiamGia : "áp dụng (SP)"
-DonHang "1" --o| MaGiamGia : "áp dụng (ship)"
-DonHang "1" --o{ LichSuVoucher : "ghi nhận"
+DonHang "1" *--{ ChiTietDonHang    : "chứa"
+DonHang "1" --o| MaGiamGia         : "voucher SP"
+DonHang "1" --o| MaGiamGia         : "voucher ship"
+DonHang "1" --o{ LichSuVoucher     : "ghi nhận"
 
-GioHang "1" *--o{ ChiTietGioHang : "chứa"
+GioHang "1" *--o{ ChiTietGioHang   : "chứa"
 
-SanPham "1" --o{ ChiTietDonHang : "thuộc"
-SanPham "1" --o{ ChiTietGioHang : "thuộc"
-SanPham "1" *--{ ThongSoKyThuat : "có"
-SanPham "1" *--{ AnhSanPham : "có"
-SanPham "1" --o{ DanhGia : "nhận"
-SanPham "1" --o{ LichSuKho : "theo dõi"
-SanPham "1" --o{ YeuThich : "được lưu"
+SanPham "1" --o{ ChiTietDonHang    : "thuộc"
+SanPham "1" --o{ ChiTietGioHang    : "thuộc"
+SanPham "1" *--{ ThongSoKyThuat    : "có"
+SanPham "1" --o{ AnhSanPham        : "gallery"
+SanPham "1" --o{ DanhGia           : "nhận"
+SanPham "1" --o{ LichSuKho         : "theo dõi"
+SanPham "1" --o{ YeuThich          : "được lưu"
 
-SanPham "}o" -- "1|" DanhMuc : "thuộc"
-SanPham "}o" -- "1|" ThuongHieu : "của"
-DanhMuc "1" --o{ DanhMuc : "parent/child"
+SanPham "}o" -- "1|" DanhMuc        : "thuộc"
+SanPham "}o" -- "1|" ThuongHieu     : "của"
+DanhMuc "1" --o{ DanhMuc            : "cha/con"
 
 MaGiamGia "1" --o{ VoucherNguoiDung : "phân phối"
-MaGiamGia "1" --o{ LichSuVoucher : "được dùng"
+MaGiamGia "1" --o{ LichSuVoucher    : "được dùng"
 
 ChiTietDonHang "1" --o| YeuCauBaoHanh : "bảo hành"
-ChiTietDonHang "1" --o| DanhGia : "đánh giá"
+ChiTietDonHang "1" --o| DanhGia        : "đánh giá"
 
-FlashSale "1" *--{ SanPham : "gồm"
+FlashSale "1" *--{ ChiTietFlashSale   : "chứa"
+ChiTietFlashSale "}o" -- "1|" SanPham  : "sản phẩm"
 
 @enduml

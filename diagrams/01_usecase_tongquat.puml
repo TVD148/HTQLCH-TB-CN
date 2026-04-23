@@ -56,13 +56,15 @@ rectangle "<<Hệ thống Quản lý Cửa hàng TBCN>>" {
 
   package "Quản lý Admin" {
     usecase "Quản lý\nSản phẩm (CRUD)" as UC_MGPROD
-    usecase "Quản lý\nDanh mục & Thương hiệu" as UC_MGCAT
+    usecase "Quản lý\nDanh mục" as UC_MGCAT
+    usecase "Quản lý\nThương hiệu" as UC_MGBRAND
     usecase "Quản lý\nĐơn hàng" as UC_MGORDER
     usecase "Quản lý\nNgười dùng" as UC_MGUSER
     usecase "Quản lý\nVoucher/Khuyến mãi" as UC_MGVOUCHER
     usecase "Phân phối\nVoucher cho user" as UC_DIST_VCH
     usecase "Quản lý\nBảo hành" as UC_MGWARRANTY
     usecase "Quản lý\nFlash Sale" as UC_MGFLASH
+    usecase "Duyệt & Phản hồi\nĐánh giá" as UC_MGREVIEWS
     usecase "Báo cáo\nDoanh thu" as UC_REPORT_REV
     usecase "Thống kê\nTồn kho" as UC_REPORT_INV
     usecase "Gửi thông báo\nBroadcast" as UC_BROADCAST
@@ -112,12 +114,14 @@ NV --> UC_RECV_WARRANTY
 ADMIN --> UC_LOGIN
 ADMIN --> UC_MGPROD
 ADMIN --> UC_MGCAT
+ADMIN --> UC_MGBRAND
 ADMIN --> UC_MGORDER
 ADMIN --> UC_MGUSER
 ADMIN --> UC_MGVOUCHER
 ADMIN --> UC_DIST_VCH
 ADMIN --> UC_MGWARRANTY
 ADMIN --> UC_MGFLASH
+ADMIN --> UC_MGREVIEWS
 ADMIN --> UC_REPORT_REV
 ADMIN --> UC_REPORT_INV
 ADMIN --> UC_BROADCAST

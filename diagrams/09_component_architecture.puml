@@ -39,6 +39,8 @@ package "⚛️ Frontend - ReactJS (Vite + React Router v6)" {
     [AdminReports] as AREP
     [AdminNotifications] as ANOT
     [AdminFlashSale] as AFS
+    [AdminCategories] as ACAT
+    [AdminBrands] as ABRD
   }
 
   package "Shared Components" {
@@ -50,8 +52,9 @@ package "⚛️ Frontend - ReactJS (Vite + React Router v6)" {
 
   package "Context (State Management)" {
     [AuthContext\n(user, login, logout)] as ACTX
-    [CartContext\n(cart, addToCart)] as CCTX
+    [CartContext\n(cart, addToCart, count)] as CCTX
     [ThemeContext\n(light/dark)] as TCTX
+    [CompareContext\n(compare list, max 4)] as CMCTX
   }
 
   package "API Layer (axios)" {
@@ -113,8 +116,8 @@ package "🗄️ Database - MySQL (XAMPP)" {
     [don_hang / chi_tiet_don_hang\n(ma_voucher, ma_voucher_ship)] as TDH
     [ma_giam_gia\n(product | shipping | freeship)] as TMG
     [voucher_nguoi_dung\n/ lich_su_voucher] as TVD
-    [danh_gia\n(phan_hoi_admin)] as TDG
-    [yeu_cau_bao_hanh\n(hinh_thuc, lich_hen)] as TBHH
+    [danh_gia\n(da_duyet, phan_hoi_admin)] as TDG
+    [yeu_cau_bao_hanh\n(hinh_thuc, so_dien_thoai, lich_hen)] as TBHH
     [lich_su_kho] as TLSK
     [thong_bao] as TTB
     [yeu_thich] as TYT

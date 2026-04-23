@@ -1,6 +1,6 @@
 @startuml 07_erd_database
 !theme cerulean-outline
-title Sơ đồ Cơ sở Dữ liệu (ERD)\nHệ thống Quản lý Cửa hàng Thiết bị Công nghệ
+title Sơ đồ Cơ sở Dữ liệu (ERD)\nHệ thống Quản lý Cửa hàng Thiết bị Công nghệ\nPhiên bản: 2.0 — Đồng bộ với schema thực tế
 
 skinparam linetype ortho
 skinparam entity {
@@ -20,12 +20,13 @@ entity "nguoi_dung" as ND {
   ten_dem : VARCHAR(100)
   *email : VARCHAR(150) <<UNIQUE>>
   *mat_khau_ma_hoa : VARCHAR(255)
-  *vai_tro : ENUM('admin','staff','user') DEFAULT 'user'
+  *vai_tro : ENUM('admin','staff','khach_hang')
   so_dien_thoai : VARCHAR(20)
   dia_chi : TEXT
   anh_dai_dien : VARCHAR(255)
   *diem_tich_luy : INT DEFAULT 0
   *trang_thai : TINYINT(1) DEFAULT 1
+  ngay_xac_thuc_email : TIMESTAMP
   *ngay_tao : TIMESTAMP
   *ngay_cap_nhat : TIMESTAMP
 }
@@ -38,10 +39,9 @@ entity "danh_muc" as DM {
   *duong_dan : VARCHAR(120) <<UNIQUE>>
   mo_ta : TEXT
   hinh_anh : VARCHAR(255)
-  ma_cha : INT <<FK, NULL>>
+  ma_danh_muc_cha : INT <<FK, NULL>>
   *trang_thai : TINYINT(1) DEFAULT 1
-  thu_tu : INT DEFAULT 0
-  so_san_pham : INT DEFAULT 0
+  *thu_tu : INT DEFAULT 0
   *ngay_tao : TIMESTAMP
 }
 
@@ -50,10 +50,11 @@ entity "thuong_hieu" as TH {
   *ma_thuong_hieu : INT <<PK>>
   --
   *ten_thuong_hieu : VARCHAR(100) <<UNIQUE>>
-  *duong_dan : VARCHAR(120)
+  *duong_dan : VARCHAR(120) <<UNIQUE>>
   logo : VARCHAR(255)
-  xuat_xu : VARCHAR(50)
+  quoc_gia : VARCHAR(50)
   *trang_thai : TINYINT(1) DEFAULT 1
+  *ngay_tao : TIMESTAMP
 }
 
 '============ SAN_PHAM ============
@@ -67,16 +68,16 @@ entity "san_pham" as SP {
   *gia_goc : DECIMAL(15,2)
   gia_khuyen_mai : DECIMAL(15,2)
   *so_luong_ton : INT DEFAULT 0
-  canh_bao_ton_toi_thieu : INT DEFAULT 5
+  *canh_bao_ton_toi_thieu : INT DEFAULT 5
   *ma_danh_muc : INT <<FK>>
   *ma_thuong_hieu : INT <<FK>>
   anh_dai_dien : VARCHAR(255)
   *trang_thai : TINYINT(1) DEFAULT 1
   *noi_bat : TINYINT(1) DEFAULT 0
-  luot_xem : INT DEFAULT 0
-  danh_gia_tb : DECIMAL(3,2) DEFAULT 0
-  thoi_gian_bao_hanh : INT DEFAULT 12
-  phi_van_chuyen : DECIMAL(12,0) DEFAULT 30000
+  *luot_xem : INT DEFAULT 0
+  *danh_gia_tb : DECIMAL(3,2) DEFAULT 0
+  *thoi_gian_bao_hanh : INT DEFAULT 12
+  *phi_van_chuyen : DECIMAL(12,0) DEFAULT 30000
   *ngay_tao : TIMESTAMP
   *ngay_cap_nhat : TIMESTAMP
 }
@@ -86,9 +87,9 @@ entity "anh_san_pham" as ASP {
   *ma_anh : INT <<PK>>
   --
   *ma_san_pham : INT <<FK>>
-  *url_anh : VARCHAR(255)
+  *duong_dan_anh : VARCHAR(255)
   *la_anh_chinh : TINYINT(1) DEFAULT 0
-  thu_tu : INT DEFAULT 0
+  *thu_tu : INT DEFAULT 0
 }
 
 '============ THONG_SO_KY_THUAT ============
@@ -99,7 +100,7 @@ entity "thong_so_ky_thuat" as TSKT {
   *ten_thong_so : VARCHAR(100)
   *gia_tri : VARCHAR(255)
   don_vi : VARCHAR(50)
-  thu_tu : INT DEFAULT 0
+  *thu_tu : INT DEFAULT 0
 }
 
 '============ YEU_THICH ============
@@ -118,6 +119,7 @@ entity "gio_hang" as GH {
   --
   *ma_nguoi_dung : INT <<FK, UNIQUE>>
   *ngay_tao : TIMESTAMP
+  *ngay_cap_nhat : TIMESTAMP
 }
 
 '============ CHI_TIET_GIO_HANG ============
@@ -142,25 +144,27 @@ entity "ma_giam_gia" as MGG {
   *loai_giam : ENUM('percent','fixed_amount','freeship')
   *gia_tri_giam : DECIMAL(15,2)
   giam_toi_da : DECIMAL(15,2)
-  don_hang_toi_thieu : DECIMAL(15,2) DEFAULT 0
-  gioi_han_su_dung : INT
-  da_su_dung : INT DEFAULT 0
-  *loai_voucher : ENUM('product','shipping','promo_code') DEFAULT 'product'
+  *don_hang_toi_thieu : DECIMAL(15,2) DEFAULT 0
+  *so_lan_toi_da : INT DEFAULT 1
+  *da_su_dung : INT DEFAULT 0
+  *gioi_han_moi_nguoi : INT DEFAULT 1
+  *loai_voucher : ENUM('product','shipping','promo_code')
   *trang_thai : TINYINT(1) DEFAULT 1
-  ngay_bat_dau : TIMESTAMP
-  het_han : TIMESTAMP
-  *ngay_tao : TIMESTAMP
+  *ngay_bat_dau : DATETIME
+  *ngay_het_han : DATETIME
+  *ngay_tao : DATETIME
 }
 
 '============ VOUCHER_NGUOI_DUNG ============
 entity "voucher_nguoi_dung" as VND {
-  *ma : INT <<PK>>
+  *ma_id : INT <<PK>>
   --
   *ma_voucher : INT <<FK>>
   *ma_nguoi_dung : INT <<FK>>
   *da_su_dung : TINYINT(1) DEFAULT 0
+  *ngay_gui : TIMESTAMP
   ngay_su_dung : TIMESTAMP
-  *ngay_cap : TIMESTAMP
+  <<UNIQUE (ma_voucher, ma_nguoi_dung)>>
 }
 
 '============ DON_HANG ============
@@ -172,12 +176,12 @@ entity "don_hang" as DH {
   *tam_tinh : DECIMAL(15,2)
   *so_tien_giam : DECIMAL(15,2) DEFAULT 0
   *phi_van_chuyen : DECIMAL(15,2) DEFAULT 0
-  so_tien_giam_ship : DECIMAL(15,2) DEFAULT 0
+  *so_tien_giam_ship : DECIMAL(15,0) DEFAULT 0
   *tong_tien : DECIMAL(15,2)
   ma_voucher : INT <<FK, NULL>>
   ma_voucher_ship : INT <<FK, NULL>>
-  diem_su_dung : INT DEFAULT 0
-  diem_tich_duoc : INT DEFAULT 0
+  *diem_su_dung : INT DEFAULT 0
+  *diem_tich_duoc : INT DEFAULT 0
   *trang_thai : ENUM('cho_xac_nhan','da_xac_nhan',\n'dang_giao','da_giao','da_huy','hoan_tien')
   *phuong_thuc_tt : ENUM('tien_mat','chuyen_khoan',\n'momo','diem_tich_luy')
   *trang_thai_tt : ENUM('chua_tt','da_tt','da_hoan_tien')
@@ -186,6 +190,7 @@ entity "don_hang" as DH {
   *dia_chi_giao_hang : TEXT
   ghi_chu : TEXT
   *ngay_tao : TIMESTAMP
+  *ngay_cap_nhat : TIMESTAMP
 }
 
 '============ CHI_TIET_DON_HANG ============
@@ -207,7 +212,7 @@ entity "lich_su_voucher" as LSV {
   --
   *ma_voucher : INT <<FK>>
   *ma_nguoi_dung : INT <<FK>>
-  *ma_don_hang : INT <<FK>>
+  ma_don_hang : INT <<NULL>>
   *so_tien_giam : DECIMAL(15,2)
   *ngay_su_dung : TIMESTAMP
 }
@@ -219,12 +224,13 @@ entity "danh_gia" as DG {
   *ma_nguoi_dung : INT <<FK>>
   *ma_san_pham : INT <<FK>>
   ma_chi_tiet_dh : INT <<FK, NULL>>
-  *so_sao : TINYINT(1) CHECK(1-5)
+  *so_sao : TINYINT(1) CHECK(1–5)
   binh_luan : TEXT
-  *trang_thai : ENUM('cho_duyet','da_duyet','tu_choi') DEFAULT 'cho_duyet'
   phan_hoi_admin : TEXT
   ngay_phan_hoi : TIMESTAMP
+  *da_duyet : TINYINT(1) DEFAULT 0
   *ngay_tao : TIMESTAMP
+  <<UNIQUE (ma_nguoi_dung, ma_san_pham, ma_chi_tiet_dh)>>
 }
 
 '============ YEU_CAU_BAO_HANH ============
@@ -238,7 +244,7 @@ entity "yeu_cau_bao_hanh" as YCBH {
   *hinh_thuc : ENUM('buu_dien','ship_ve','den_cua_hang')
   so_dien_thoai : VARCHAR(20)
   lich_hen : DATETIME
-  *trang_thai : ENUM('cho_xu_ly','dang_xu_ly','hoan_thanh','tu_choi')
+  *trang_thai : ENUM('cho_xu_ly','da_tiep_nhan',\n'dang_xu_ly','hoan_thanh','tu_choi')
   ma_nhan_vien_xu_ly : INT <<FK, NULL>>
   ghi_chu_xu_ly : TEXT
   *ngay_tiep_nhan : DATETIME
@@ -250,7 +256,7 @@ entity "lich_su_kho" as LSK {
   *ma_lich_su : INT <<PK>>
   --
   *ma_san_pham : INT <<FK>>
-  ma_nguoi_dung : INT <<FK>>
+  ma_nguoi_dung : INT <<FK, NULL>>
   *so_luong_bien_dong : INT
   *ton_kho_truoc : INT
   *ton_kho_sau : INT
@@ -292,9 +298,9 @@ entity "dia_chi_nguoi_dung" as DCND {
 entity "flash_sale" as FS {
   *ma_flash_sale : INT <<PK>>
   --
-  *ten : VARCHAR(200)
-  *ngay_bat_dau : DATETIME
-  *ngay_ket_thuc : DATETIME
+  *ten : VARCHAR(200) DEFAULT 'Flash Sale'
+  *thoi_gian_bat_dau : DATETIME
+  *thoi_gian_ket_thuc : DATETIME
   *trang_thai : TINYINT(1) DEFAULT 1
   *ngay_tao : TIMESTAMP
 }
@@ -307,47 +313,48 @@ entity "chi_tiet_flash_sale" as CTFS {
   *ma_san_pham : INT <<FK>>
   *gia_flash : DECIMAL(15,2)
   so_luong_gioi_han : INT
-  da_ban : INT DEFAULT 0
+  *da_ban : INT DEFAULT 0
+  <<UNIQUE (ma_flash_sale, ma_san_pham)>>
 }
 
 '============ RELATIONSHIPS ============
-ND ||--o{ DH : "đặt"
-ND ||--|| GH : "có"
-ND ||--o{ DG : "viết"
-ND ||--o{ YT : "lưu"
-ND ||--o{ YCBH : "yêu cầu"
-ND ||--o{ TB : "nhận"
-ND ||--o{ VND : "có"
-ND ||--o{ LSV : "sử dụng"
-ND ||--o{ LSK : "ghi nhận"
-ND ||--o{ DCND : "lưu"
+ND ||--o{ DH       : "đặt"
+ND ||--|| GH       : "có 1"
+ND ||--o{ DG       : "viết"
+ND ||--o{ YT       : "lưu"
+ND ||--o{ YCBH     : "yêu cầu"
+ND ||--o{ TB       : "nhận"
+ND ||--o{ VND      : "sở hữu"
+ND ||--o{ LSV      : "sử dụng"
+ND ||--o{ LSK      : "thao tác"
+ND ||--o{ DCND     : "lưu địa chỉ"
 
-DM ||--o{ DM : "ma_cha (self)"
-DM ||--o{ SP : "chứa"
-TH ||--o{ SP : "của"
+DM ||--o{ DM       : "cha/con (self)"
+DM ||--o{ SP       : "chứa"
+TH ||--o{ SP       : "của"
 
-SP ||--|{ TSKT : "có"
-SP ||--|{ ASP : "có"
-SP ||--o{ CTGH : "trong giỏ"
-SP ||--o{ CTDH : "trong đơn"
-SP ||--o{ DG : "được đánh giá"
-SP ||--o{ LSK : "theo dõi kho"
-SP ||--o{ YT : "được yêu thích"
-SP ||--o{ CTFS : "flash sale"
+SP ||--|{ TSKT     : "thông số"
+SP ||--o{ ASP      : "gallery ảnh"
+SP ||--o{ CTGH     : "trong giỏ"
+SP ||--o{ CTDH     : "trong đơn"
+SP ||--o{ DG       : "nhận đánh giá"
+SP ||--o{ LSK      : "theo dõi kho"
+SP ||--o{ YT       : "được lưu"
+SP ||--o{ CTFS     : "flash sale"
 
-GH ||--o{ CTGH : "chứa"
+GH ||--|{ CTGH     : "chứa"
 
-MGG ||--o{ VND : "phân phối"
-MGG ||--o{ DH : "áp dụng (SP)"
-MGG ||--o{ DH : "áp dụng (ship)"
-MGG ||--o{ LSV : "lịch sử"
+MGG ||--o{ VND     : "phân phối"
+MGG ||--o{ DH      : "áp dụng SP"
+MGG ||--o{ DH      : "áp dụng ship"
+MGG ||--o{ LSV     : "lịch sử dùng"
 
-DH ||--|{ CTDH : "chứa"
-DH ||--o{ LSV : "ghi nhận"
+DH ||--|{ CTDH     : "chứa"
+DH ||--o{ LSV      : "ghi nhận"
 
-CTDH ||--o{ DG : "đánh giá"
-CTDH ||--o| YCBH : "bảo hành"
+CTDH ||--o{ DG     : "đánh giá"
+CTDH ||--o| YCBH   : "bảo hành"
 
-FS ||--|{ CTFS : "chứa"
+FS ||--|{ CTFS     : "chứa"
 
 @enduml
